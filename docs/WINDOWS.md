@@ -15,6 +15,7 @@ Two earlier failures were resolved:
 
 - An apparent HTTP 429 was a misclassified FFmpeg exit code (`4294957242`, which is -10054, a connection reset). Only explicit HTTP status markers are now treated as HTTP errors.
 - Remote segment downloads reset because yt-dlp's FFmpeg step didn't receive the Windows manual proxy that metadata requests used. The app now forwards an unambiguous manual HTTP proxy explicitly.
+- Look Up took about 23 s in a normal desktop session, but 4 s from a shell with proxy variables set. With only `--proxy`, part of yt-dlp's pipeline connected directly and waited for timeouts. The app now also passes the proxy to yt-dlp as `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY`, and Look Up takes about 6 s.
 
 ## Development prerequisites
 

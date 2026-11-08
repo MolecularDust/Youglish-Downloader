@@ -25,11 +25,40 @@ pub fn configure(c: &mut Command) {
     #[cfg(windows)]
     if !has_proxy_environment() {
         if let Some(proxy) = windows_manual_proxy() {
-            c.arg("--proxy").arg(proxy);
+            apply_proxy(c, &proxy);
         }
     }
     #[cfg(not(windows))]
     let _ = c;
+}
+/// Give yt-dlp the proxy as --proxy and as environment variables. With only --proxy, part of its
+/// pipeline (measured: a Look Up took 23 s instead of 4 s) connected directly and waited for timeouts,
+/// because a desktop session has no proxy variables; yt-dlp's children inherit these.
+#[cfg(any(windows, test))]
+fn apply_proxy(c: &mut Command, proxy: &str) {
+    c.arg("--proxy").arg(proxy);
+    c.env("HTTP_PROXY", proxy)
+        .env("HTTPS_PROXY", proxy)
+        .env("NO_PROXY", "localhost,127.0.0.1,::1");
+}
+#[cfg(test)]
+mod proxy_env_tests {
+    use super::*;
+    #[test]
+    fn proxy_is_passed_as_flag_and_environment() {
+        let mut c = Command::new("yt-dlp");
+        apply_proxy(&mut c, "http://127.0.0.1:10809");
+        let args: Vec<_> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(args, ["--proxy", "http://127.0.0.1:10809"]);
+        let env = |k: &str| {
+            c.get_envs()
+                .find(|(n, _)| *n == k)
+                .and_then(|(_, v)| v.map(|v| v.to_string_lossy().into_owned()))
+        };
+        assert_eq!(env("HTTP_PROXY").as_deref(), Some("http://127.0.0.1:10809"));
+        assert_eq!(env("HTTPS_PROXY").as_deref(), Some("http://127.0.0.1:10809"));
+        assert_eq!(env("NO_PROXY").as_deref(), Some("localhost,127.0.0.1,::1"));
+    }
 }
 #[cfg(windows)]
 fn windows_manual_proxy() -> Option<String> {
