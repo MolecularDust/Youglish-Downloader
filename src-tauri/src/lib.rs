@@ -870,8 +870,9 @@ fn reveal(s: State<Backend>, id: String) -> Result<(), String> {
 }
 /// Open the official site as the top-level document for a playback comparison.
 /// No IPC capabilities are granted to this remote-content window.
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn test_youglish_window(
+async fn test_youglish_window(
     app: tauri::AppHandle,
     phrase: String,
     language: String,
@@ -883,28 +884,55 @@ fn test_youglish_window(
 
 /// Use the same persistent, non-incognito webview as the playback test.
 /// Authentication happens on Google's pages; no credentials are read by the app.
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_sign_in_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_sign_in_window(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://accounts.google.com/").unwrap(),
     )
 }
 
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_playback_test(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_playback_test(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://www.youtube.com/watch?v=I2xDZlpInik&t=1034s").unwrap(),
     )
 }
 
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_connect_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_connect_window(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://www.youtube.com/signin").unwrap(),
     )
+}
+
+/// Open Google sign-in in the default browser, where passkeys and security keys are supported.
+/// The app never receives the login; choose that browser under Download authentication afterwards.
+#[tauri::command]
+fn open_browser_sign_in() -> Result<(), String> {
+    const SIGN_IN: &str =
+        "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F";
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("/usr/bin/open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        // explorer.exe can open a folder for this URL instead of the browser.
+        let mut c = std::process::Command::new("rundll32.exe");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut command = std::process::Command::new("xdg-open");
+    command
+        .arg(SIGN_IN)
+        .spawn()
+        .map_err(|_| "Could not open your browser".to_string())?;
+    Ok(())
 }
 
 fn show_session_window(app: tauri::AppHandle, url: url::Url) -> Result<(), String> {
@@ -1067,6 +1095,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_clipboard,
             open_youtube,
+            open_browser_sign_in,
             test_youglish_window,
             youtube_sign_in_window,
             youtube_connect_window,

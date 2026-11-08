@@ -1425,6 +1425,21 @@ function App() {
               Use an existing browser session for videos you’re authorized to
               access. Anonymous is the default.
             </p>
+            <p>
+              Recommended: sign in to YouTube in your normal browser. Passkeys
+              and security keys work there. Then choose that browser under
+              Download authentication below. The app never sees your password.
+            </p>
+            <div className="playback-test-actions">
+              <button onClick={() => act(() => invoke("open_browser_sign_in"))}>
+                Sign in in my browser ↗
+              </button>
+            </div>
+            <p>
+              Alternatively, use “1. Sign in to Google” above. Passkeys and
+              security keys may fail inside the app, so use your password and
+              phone confirmation there.
+            </p>
             <Field label="Download authentication">
               <select
                 value={settings.browser || (settings.cookiesFile ? "file" : "")}
