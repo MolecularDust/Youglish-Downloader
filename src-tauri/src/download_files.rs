@@ -1,4 +1,39 @@
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Staging folders of this process, so they can be removed if the app exits mid-download.
+static ACTIVE: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+fn active() -> std::sync::MutexGuard<'static, Vec<PathBuf>> {
+    ACTIVE.lock().unwrap_or_else(|e| e.into_inner())
+}
+/// Remove every staging folder this process still owns (called after child processes are killed).
+pub fn remove_all_active() {
+    for directory in active().drain(..) {
+        let _ = std::fs::remove_dir_all(directory);
+    }
+}
+fn staging_pid(name: &str) -> Option<u32> {
+    name.strip_prefix(".tubecutter-")?
+        .strip_suffix(".partial")?
+        .split('-')
+        .next()?
+        .parse()
+        .ok()
+}
+/// Remove staging folders left in `destination` by instances that no longer run.
+/// Folders without a process id (older versions) and live instances' folders are kept.
+pub fn sweep_stale(destination: &Path) {
+    let Ok(entries) = std::fs::read_dir(destination) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let is_dir = entry.file_type().is_ok_and(|t| t.is_dir() && !t.is_symlink());
+        if is_dir && staging_pid(&name).is_some_and(|pid| !crate::platform::process_alive(pid)) {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
 
 /// Owns one download's staging directory. Only verified output is published.
 pub struct DownloadFiles {
@@ -10,8 +45,13 @@ impl DownloadFiles {
         let destination = destination
             .canonicalize()
             .map_err(|_| "Destination is unavailable")?;
-        let directory = destination.join(format!(".tubecutter-{}.partial", uuid::Uuid::new_v4()));
+        let directory = destination.join(format!(
+            ".tubecutter-{}-{}.partial",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
         std::fs::create_dir(&directory).map_err(|_| "Cannot create download staging folder")?;
+        active().push(directory.clone());
         Ok(Self {
             directory,
             destination,
@@ -74,6 +114,13 @@ impl DownloadFiles {
     }
 
     pub fn cleanup(&self) -> Result<(), String> {
+        let result = self.remove();
+        if result.is_ok() {
+            active().retain(|d| d != &self.directory);
+        }
+        result
+    }
+    fn remove(&self) -> Result<(), String> {
         match std::fs::remove_dir_all(&self.directory) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -115,6 +162,39 @@ mod tests {
         assert!(!files.directory.exists());
         assert_eq!(std::fs::read(dest.join("existing.mp4")).unwrap(), b"keep");
         assert_eq!(std::fs::read_dir(&dest).unwrap().count(), 1);
+        std::fs::remove_dir_all(dest).unwrap();
+    }
+    #[test]
+    fn publishes_into_a_destination_longer_than_260_characters() {
+        let mut dest = destination();
+        for n in 0..6 {
+            dest.push(format!("{n}-{}", "d".repeat(44)));
+        }
+        std::fs::create_dir_all(&dest).unwrap();
+        assert!(dest.to_string_lossy().len() > 260);
+        let files = DownloadFiles::new(&dest).unwrap();
+        let source = files.directory.join("clip.mp4");
+        std::fs::write(&source, b"x").unwrap();
+        let published = files.publish(&source, Some("A clip.mp4"), false).unwrap();
+        assert_eq!(std::fs::read(&published).unwrap(), b"x");
+        drop(files);
+        let root = dest.ancestors().nth(6).unwrap().to_path_buf();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn sweep_removes_only_dead_instances_staging_folders() {
+        let dest = destination();
+        let mine = DownloadFiles::new(&dest).unwrap();
+        let dead = dest.join(".tubecutter-2147483646-x.partial");
+        std::fs::create_dir(&dead).unwrap();
+        std::fs::write(dead.join("a.part"), b"x").unwrap();
+        let legacy = dest.join(".tubecutter-legacy.partial");
+        std::fs::create_dir(&legacy).unwrap();
+        std::fs::write(dest.join("keep.mp4"), b"keep").unwrap();
+        sweep_stale(&dest);
+        assert!(!dead.exists() && legacy.exists() && mine.directory.exists());
+        assert!(dest.join("keep.mp4").exists());
+        drop(mine);
         std::fs::remove_dir_all(dest).unwrap();
     }
     #[cfg(unix)]

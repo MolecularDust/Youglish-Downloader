@@ -5,7 +5,9 @@ mod model;
 mod network;
 mod platform;
 mod player;
+mod metadata;
 mod session;
+mod timing;
 use model::*;
 use std::{
     collections::HashMap,
@@ -21,6 +23,7 @@ struct Backend {
     origin: String,
     sender: std::sync::mpsc::Sender<(String, Settings)>,
     analyzer: Arc<Mutex<Option<u32>>>,
+    metadata: Arc<metadata::MetadataCache>,
 }
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let p = if platform::portable() {
@@ -50,13 +53,14 @@ fn auth(c: &mut std::process::Command, s: &Settings) -> Result<(), String> {
     }
     Ok(())
 }
+/// yt-dlp command shared by lookups and downloads. Requests are not artificially delayed;
+/// the queue's cooldown spaces consecutive downloads instead.
 fn base(s: &Settings) -> Result<std::process::Command, String> {
     let mut c = platform::command("yt-dlp")?;
     c.args([
         "--ignore-config",
         "--no-playlist",
         "--no-warnings",
-        "--no-cache-dir",
         "--socket-timeout",
         "20",
         "--retries",
@@ -65,8 +69,6 @@ fn base(s: &Settings) -> Result<std::process::Command, String> {
         "0",
         "--extractor-retries",
         "0",
-        "--sleep-requests",
-        "3",
         "--compat-options",
         "prefer-legacy-http-handler",
     ]);
@@ -76,6 +78,10 @@ fn base(s: &Settings) -> Result<std::process::Command, String> {
     if let Ok(p) = platform::binary("deno") {
         c.arg("--js-runtimes").arg(format!("deno:{}", p.display()));
     }
+    match platform::cache_dir() {
+        Some(dir) => c.arg("--cache-dir").arg(dir),
+        None => c.arg("--no-cache-dir"),
+    };
     network::configure(&mut c);
     auth(&mut c, s)?;
     diagnostics::log(diagnostics::Stage::Invocation, s, None, "");
@@ -131,7 +137,7 @@ fn installed_browsers() -> Vec<String> {
 
 #[tauri::command]
 fn get_settings(s: State<Backend>) -> Settings {
-    s.settings.lock().unwrap().clone()
+    s.settings.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 #[tauri::command]
 fn save_settings(
@@ -145,7 +151,7 @@ fn save_settings(
     let path = settings_path(&app)?;
     std::fs::write(path, serde_json::to_vec_pretty(&settings).unwrap())
         .map_err(|e| e.to_string())?;
-    *s.settings.lock().unwrap() = settings;
+    *s.settings.lock().unwrap_or_else(|e| e.into_inner()) = settings;
     Ok(())
 }
 #[tauri::command]
@@ -172,7 +178,7 @@ async fn caption_track(
     language: String,
     s: State<'_, Backend>,
 ) -> Result<serde_json::Value, String> {
-    let settings = s.settings.lock().unwrap().clone();
+    let settings = s.settings.lock().unwrap_or_else(|e| e.into_inner()).clone();
     let settings = session::prepare(&app, settings)?;
     let cache = if platform::portable() {
         platform::data_dir()?.join("Cache")
@@ -183,9 +189,15 @@ async fn caption_track(
     }
     .join("captions");
 
-    tauri::async_runtime::spawn_blocking(move || captions::retrieve(url, language, settings, cache))
-        .await
-        .map_err(|_| "Caption worker stopped".to_string())?
+    let (value, raw) =
+        tauri::async_runtime::spawn_blocking(move || captions::retrieve(url, language, settings, cache))
+            .await
+            .map_err(|_| "Caption worker stopped".to_string())??;
+    // Keep the full metadata so the download of this video can skip extracting it again.
+    if let Some(id) = value["video"]["id"].as_str() {
+        s.metadata.put(id, raw);
+    }
+    Ok(value)
 }
 #[tauri::command]
 fn player_origin(s: State<Backend>) -> String {
@@ -198,11 +210,11 @@ async fn analyze(
     s: State<'_, Backend>,
 ) -> Result<serde_json::Value, String> {
     let normalized = normalize(&url)?;
-    let settings = s.settings.lock().unwrap().clone();
+    let settings = s.settings.lock().unwrap_or_else(|e| e.into_inner()).clone();
     let settings = session::prepare(&app, settings)?;
     let analyzer = s.analyzer.clone();
     {
-        let mut active = analyzer.lock().unwrap();
+        let mut active = analyzer.lock().unwrap_or_else(|e| e.into_inner());
         if active.is_some() {
             return Err("Video analysis is already running".into());
         }
@@ -213,7 +225,7 @@ async fn analyze(
         let mut command=base(&settings)?;
         command.args(["--dump-single-json","--skip-download","--",&normalized]).stdout(Stdio::piped()).stderr(Stdio::piped());
         let child=platform::spawn(&mut command).map_err(|_|"Cannot start yt-dlp")?;
-        *process.lock().unwrap()=Some(child.id());
+        *process.lock().unwrap_or_else(|e| e.into_inner())=Some(child.id());
         let o=child.wait_with_output().map_err(|_|"Metadata worker stopped")?;
         diagnostics::log(diagnostics::Stage::Analysis, &settings, o.status.code(), &String::from_utf8_lossy(&o.stderr));
         if !o.status.success(){return Err(safe_error(&String::from_utf8_lossy(&o.stderr)))}
@@ -222,7 +234,7 @@ async fn analyze(
         let formats=v["formats"].as_array().map(|a|a.iter().map(|f|serde_json::json!({"format_id":f["format_id"],"height":f["height"],"vcodec":f["vcodec"],"acodec":f["acodec"],"ext":f["ext"]})).collect::<Vec<_>>());
         Ok(serde_json::json!({"id":v["id"],"url":normalized,"title":v["title"],"channel":v["channel"],"duration":v["duration"],"thumbnail":v["thumbnail"],"formats":formats,"subtitles":v["subtitles"]}))
     }).await.map_err(|_|"Metadata worker stopped".to_string());
-    *analyzer.lock().unwrap() = None;
+    *analyzer.lock().unwrap_or_else(|e| e.into_inner()) = None;
     result?
 }
 fn update(
@@ -231,7 +243,7 @@ fn update(
     id: &str,
     f: impl FnOnce(&mut Job),
 ) {
-    if let Some(j) = jobs.lock().unwrap().get_mut(id) {
+    if let Some(j) = jobs.lock().unwrap_or_else(|e| e.into_inner()).get_mut(id) {
         let canceled = j.state == "canceled";
         f(j);
         if canceled {
@@ -242,16 +254,62 @@ fn update(
         }
     }
 }
+/// Run one queued job with a fresh cookie snapshot. A panic fails that job only; the queue continues.
+fn run_job(
+    app: &tauri::AppHandle,
+    jobs: &Arc<Mutex<HashMap<String, Job>>>,
+    id: &str,
+    settings: Settings,
+) {
+    let fail = |message: String| {
+        update(app, jobs, id, |j| {
+            if j.state != "canceled" {
+                j.state = "failed".into();
+                j.message = message;
+            }
+            j.pid = 0;
+        })
+    };
+    let settings = match session::prepare(app, settings) {
+        Ok(settings) => settings,
+        Err(e) => return fail(e),
+    };
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let video = jobs.lock().unwrap_or_else(|e| e.into_inner())[id].request.url.clone();
+        let video = normalize(&video).ok().and_then(|u| u.rsplit('=').next().map(str::to_string));
+        let cache = app.state::<Backend>().metadata.clone();
+        let cached = video.as_deref().and_then(|v| cache.get(v));
+        let retry = match cached {
+            Some(saved) => download(app.clone(), jobs.clone(), id.to_string(), settings.clone(), Some(saved)),
+            None => true,
+        };
+        if retry {
+            // No saved metadata, or it no longer worked (for example its links expired).
+            if let Some(v) = video.as_deref() {
+                cache.forget(v);
+            }
+            download(app.clone(), jobs.clone(), id.to_string(), settings, None);
+        }
+    }));
+    if outcome.is_err() {
+        fail("The download worker hit an internal error. Retry the download.".into());
+    }
+}
+/// Returns true when it used saved metadata and the download failed in a way a fresh extraction
+/// might fix; the caller then runs it again without the saved metadata.
 fn download(
     app: tauri::AppHandle,
     jobs: Arc<Mutex<HashMap<String, Job>>>,
     id: String,
     s: Settings,
-) {
-    let r = jobs.lock().unwrap()[&id].request.clone();
+    saved: Option<Arc<Vec<u8>>>,
+) -> bool {
+    let r = jobs.lock().unwrap_or_else(|e| e.into_inner())[&id].request.clone();
     let mut files = None;
+    let mut retry_fresh = false;
     let result = (|| -> Result<(), String> {
         let mut c = base(&s)?;
+        let info_file = saved.as_ref().and_then(|json| session::write_metadata(&app, json).ok());
         let destination = PathBuf::from(&r.destination)
             .canonicalize()
             .map_err(|_| "Destination is unavailable")?;
@@ -333,13 +391,17 @@ fn download(
                 c.args(["--downloader-args", "ffmpeg_o:-progress pipe:1 -nostats"]);
             }
         }
-        c.arg("--")
-            .arg(normalize(&r.url)?)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        if cfg!(debug_assertions) {
+            c.arg("--verbose"); // development builds only: lets timing see yt-dlp's phases
+        }
+        match &info_file {
+            Some(file) => c.arg("--load-info-json").arg(&file.0),
+            None => c.arg("--").arg(normalize(&r.url)?),
+        };
+        c.stdout(Stdio::piped()).stderr(Stdio::piped());
         let mut child = platform::spawn(&mut c).map_err(|_| "Unable to start downloader")?;
         {
-            let mut map = jobs.lock().unwrap();
+            let mut map = jobs.lock().unwrap_or_else(|e| e.into_inner());
             let j = map.get_mut(&id).unwrap();
             if j.state == "canceled" {
                 let _ = platform::signal(child.id(), "cancel");
@@ -348,15 +410,20 @@ fn download(
             }
             j.pid = child.id();
             j.state = "downloading".into();
+            j.phase = "preparing".into();
+            j.progress = 0.;
             j.message.clear();
             if !j.hidden {
                 let _ = app.emit("job", j.clone());
             }
         }
         let stderr = child.stderr.take().unwrap();
+        let trace = timing::Trace::new();
+        let err_trace = trace.clone();
         let errors = std::thread::spawn(move || {
             let mut tail = String::new();
             for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                err_trace.note(&line);
                 tail.push_str(&line);
                 tail.push('\n');
                 if tail.len() > 16384 {
@@ -375,6 +442,20 @@ fn download(
             .lines()
             .map_while(Result::ok)
         {
+            trace.note(&line);
+            if line.starts_with("PROGRESS|") || line.starts_with("out_time_us=") {
+                trace.mark_once("first_progress");
+            }
+            if line.starts_with("[download] Destination")
+                || line.starts_with("PROGRESS|")
+                || line.starts_with("out_time_us=")
+            {
+                update(&app, &jobs, &id, |j| {
+                    if j.phase != "transferring" {
+                        j.phase = "transferring".into();
+                    }
+                });
+            }
             if let Some(micros) = line.strip_prefix("out_time_us=") {
                 if let (Ok(us), Some([a, b])) = (micros.parse::<f64>(), r.section) {
                     update(&app, &jobs, &id, |j| {
@@ -429,21 +510,28 @@ fn download(
             .wait()
             .map_err(|_| "Downloader did not exit cleanly")?;
         let errors = errors.join().unwrap_or_default();
-        diagnostics::log(diagnostics::Stage::Download, &s, status.code(), &errors);
+        diagnostics::log_timed(diagnostics::Stage::Download, &s, status.code(), &errors, &trace);
+        let post = timing::Trace::new();
         update(&app, &jobs, &id, |j| j.pid = 0);
-        if jobs.lock().unwrap()[&id].state == "canceled" {
+        if jobs.lock().unwrap_or_else(|e| e.into_inner())[&id].state == "canceled" {
             return Ok(());
         }
         if !status.success() {
+            if info_file.is_some() && !diagnostics::http_statuses(&errors).contains(&429) {
+                retry_fresh = true;
+                return Ok(());
+            }
             return Err(safe_error(&errors));
         }
-        let path = jobs.lock().unwrap()[&id].path.clone();
+        update(&app, &jobs, &id, |j| j.phase = "finishing".into());
+        let path = jobs.lock().unwrap_or_else(|e| e.into_inner())[&id].path.clone();
         if path.is_empty() || !PathBuf::from(&path).is_file() {
             return Err("Downloader returned no output file".into());
         }
         if r.section.is_some() && !r.precise {
             normalize_fast(&app, &jobs, &id, &path, &r)?;
-            if jobs.lock().unwrap()[&id].state == "canceled" {
+            post.mark("normalize");
+            if jobs.lock().unwrap_or_else(|e| e.into_inner())[&id].state == "canceled" {
                 return Ok(());
             }
         }
@@ -460,6 +548,7 @@ fn download(
         if !probe.status.success() {
             return Err("Output failed FFprobe inspection".into());
         }
+        post.mark("probe");
         let data: serde_json::Value =
             serde_json::from_slice(&probe.stdout).map_err(|_| "Invalid inspection result")?;
         let streams = data["streams"].as_array().ok_or("Output has no streams")?;
@@ -557,14 +646,15 @@ fn download(
                 _ => {
                     update(&app, &jobs, &id, |j| {
                         j.state = "canceled".into();
-                        j.message = "Save canceled. The existing file was kept.".into();
+                        j.message = "Save canceled. The existing file was kept; the downloaded clip was discarded."
+                            .into();
                     });
                     return Ok(());
                 }
             }
         }
         // No job lock is held while the dialog awaits a choice. Recheck cancellation before saving.
-        let mut map = jobs.lock().unwrap();
+        let mut map = jobs.lock().unwrap_or_else(|e| e.into_inner());
         let j = map.get_mut(&id).ok_or("Unknown download")?;
         if j.state == "canceled" {
             return Ok(());
@@ -574,8 +664,11 @@ fn download(
             custom_name.as_deref(),
             overwrite,
         )?;
+        post.mark("publish");
+        diagnostics::log_timed(diagnostics::Stage::PostProcess, &s, None, "", &post);
         j.path = final_path.to_string_lossy().into_owned();
         j.state = "completed".into();
+        j.phase.clear();
         j.progress = 100.;
         if let Ok(metadata) = std::fs::metadata(&final_path) {
             j.bytes = format_size(metadata.len());
@@ -599,6 +692,7 @@ fn download(
                 j.eta.clear();
                 j.pid = 0;
                 j.message = match cleanup {
+                    Ok(()) if j.message.starts_with("Save canceled") => j.message.clone(),
                     Ok(()) => "Canceled. Partial download files deleted.".into(),
                     Err(e) => e,
                 };
@@ -616,6 +710,7 @@ fn download(
             j.pid = 0;
         });
     }
+    retry_fresh
 }
 // Some HTTP delivery formats retain a positive PTS origin when stream-copied.
 // Normalize that origin locally without downloading or encoding any additional media.
@@ -704,7 +799,7 @@ fn normalize_fast(
     )
     .map_err(|_| "Cannot normalize clip timestamps")?;
     let canceled = {
-        let mut map = jobs.lock().unwrap();
+        let mut map = jobs.lock().unwrap_or_else(|e| e.into_inner());
         let j = map.get_mut(id).unwrap();
         if j.state == "canceled" {
             true
@@ -724,7 +819,7 @@ fn normalize_fast(
         .wait_with_output()
         .map_err(|_| "Clip normalization worker stopped")?;
     update(app, jobs, id, |j| j.pid = 0);
-    if jobs.lock().unwrap()[id].state == "canceled" {
+    if jobs.lock().unwrap_or_else(|e| e.into_inner())[id].state == "canceled" {
         return Ok(());
     }
     if !output.status.success() {
@@ -743,7 +838,7 @@ async fn enqueue(
     if let Err(message) = validate(&request) {
         diagnostics::log(
             diagnostics::Stage::QueueRejected,
-            &s.settings.lock().unwrap(),
+            &s.settings.lock().unwrap_or_else(|e| e.into_inner()),
             None,
             "",
         );
@@ -763,6 +858,7 @@ async fn enqueue(
             .transpose()?
             .unwrap_or_else(|| request.title.clone()),
         state: "queued".into(),
+        phase: String::new(),
         progress: 0.,
         speed: String::new(),
         bytes: String::new(),
@@ -772,10 +868,12 @@ async fn enqueue(
         pid: 0,
         request,
         hidden: false,
+        retried: false,
     };
-    let settings = s.settings.lock().unwrap().clone();
-    let settings = session::prepare(&app, settings)?;
-    s.jobs.lock().unwrap().insert(id.clone(), job.clone());
+    let settings = s.settings.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    // The cookie snapshot is taken when the job starts, not while it waits in the queue.
+    session::preflight(&app, &settings)?;
+    s.jobs.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), job.clone());
     let _ = app.emit("job", job);
     s.sender
         .send((id.clone(), settings))
@@ -802,7 +900,7 @@ fn control(
     if !["pause", "resume", "cancel"].contains(&action.as_str()) {
         return Err("Invalid queue action".into());
     }
-    let mut map = s.jobs.lock().unwrap();
+    let mut map = s.jobs.lock().unwrap_or_else(|e| e.into_inner());
     let j = map.get_mut(&id).ok_or("Unknown download")?;
     if ["completed", "failed", "canceled"].contains(&j.state.as_str()) {
         return Err("Download is no longer active".into());
@@ -826,23 +924,34 @@ fn control(
 }
 #[tauri::command]
 fn clear_completed(s: State<Backend>) -> Vec<String> {
-    clear_finished(&mut s.jobs.lock().unwrap())
+    clear_finished(&mut s.jobs.lock().unwrap_or_else(|e| e.into_inner()))
 }
 #[tauri::command]
 async fn retry(app: tauri::AppHandle, s: State<'_, Backend>, id: String) -> Result<String, String> {
     let request = {
-        let map = s.jobs.lock().unwrap();
-        let j = map.get(&id).ok_or("Unknown download")?;
+        let mut map = s.jobs.lock().unwrap_or_else(|e| e.into_inner());
+        let j = map.get_mut(&id).ok_or("Unknown download")?;
         if j.state != "failed" {
             return Err("Only failed downloads can be retried".into());
         }
+        if j.retried {
+            return Err("This download was already retried".into());
+        }
+        // Claimed before awaiting, so a double click cannot queue two copies.
+        j.retried = true;
         j.request.clone()
     };
-    enqueue(app, s, request).await
+    let result = enqueue(app, s.clone(), request).await;
+    if result.is_err() {
+        if let Some(j) = s.jobs.lock().unwrap_or_else(|e| e.into_inner()).get_mut(&id) {
+            j.retried = false;
+        }
+    }
+    result
 }
 #[tauri::command]
 fn reveal(s: State<Backend>, id: String) -> Result<(), String> {
-    let map = s.jobs.lock().unwrap();
+    let map = s.jobs.lock().unwrap_or_else(|e| e.into_inner());
     let j = map.get(&id).ok_or("Unknown download")?;
     if j.state != "completed" || !PathBuf::from(&j.path).is_file() {
         return Err("Completed file is unavailable".into());
@@ -870,8 +979,9 @@ fn reveal(s: State<Backend>, id: String) -> Result<(), String> {
 }
 /// Open the official site as the top-level document for a playback comparison.
 /// No IPC capabilities are granted to this remote-content window.
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn test_youglish_window(
+async fn test_youglish_window(
     app: tauri::AppHandle,
     phrase: String,
     language: String,
@@ -883,28 +993,55 @@ fn test_youglish_window(
 
 /// Use the same persistent, non-incognito webview as the playback test.
 /// Authentication happens on Google's pages; no credentials are read by the app.
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_sign_in_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_sign_in_window(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://accounts.google.com/").unwrap(),
     )
 }
 
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_playback_test(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_playback_test(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://www.youtube.com/watch?v=I2xDZlpInik&t=1034s").unwrap(),
     )
 }
 
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_connect_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_connect_window(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://www.youtube.com/signin").unwrap(),
     )
+}
+
+/// Open Google sign-in in the default browser, where passkeys and security keys are supported.
+/// The app never receives the login; choose that browser under Download authentication afterwards.
+#[tauri::command]
+fn open_browser_sign_in() -> Result<(), String> {
+    const SIGN_IN: &str =
+        "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F";
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("/usr/bin/open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        // explorer.exe can open a folder for this URL instead of the browser.
+        let mut c = std::process::Command::new("rundll32.exe");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut command = std::process::Command::new("xdg-open");
+    command
+        .arg(SIGN_IN)
+        .spawn()
+        .map_err(|_| "Could not open your browser".to_string())?;
+    Ok(())
 }
 
 fn show_session_window(app: tauri::AppHandle, url: url::Url) -> Result<(), String> {
@@ -1018,11 +1155,25 @@ pub fn run() {
             if let Ok(path) = log_dir {
                 diagnostics::initialize(path);
             }
-            let settings = settings_path(app.handle())
+            let settings: Settings = settings_path(app.handle())
                 .ok()
                 .and_then(|p| std::fs::read(p).ok())
                 .and_then(|b| serde_json::from_slice(&b).ok())
                 .unwrap_or_default();
+            if let Ok(dir) = session::dir(app.handle()) {
+                session::sweep_stale(&dir);
+            }
+            let cache = if platform::portable() {
+                platform::data_dir().map(|p| p.join("Cache"))
+            } else {
+                app.path().app_cache_dir().map_err(|e| e.to_string())
+            };
+            if let Ok(cache) = cache {
+                platform::set_cache_dir(cache.join("yt-dlp"));
+            }
+            if !settings.destination.is_empty() {
+                download_files::sweep_stale(std::path::Path::new(&settings.destination));
+            }
             let jobs: Arc<Mutex<HashMap<String, Job>>> = Arc::new(Mutex::new(HashMap::new()));
             let (sender, receiver) = std::sync::mpsc::channel::<(String, Settings)>();
             let worker_jobs = jobs.clone();
@@ -1041,7 +1192,7 @@ pub fn run() {
                         }
                         let remaining = cooldown_seconds(previous_finished.map(|t| t.elapsed()));
                         if remaining == 0 {
-                            download(handle.clone(), worker_jobs.clone(), id.clone(), settings);
+                            run_job(&handle, &worker_jobs, &id, settings);
                             previous_finished = Some(std::time::Instant::now());
                             break;
                         }
@@ -1060,6 +1211,7 @@ pub fn run() {
                 jobs,
                 sender,
                 analyzer: Arc::new(Mutex::new(None)),
+                metadata: Arc::new(metadata::MetadataCache::default()),
                 origin: player::start().map_err(std::io::Error::other)?,
             });
             Ok(())
@@ -1067,6 +1219,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_clipboard,
             open_youtube,
+            open_browser_sign_in,
             test_youglish_window,
             youtube_sign_in_window,
             youtube_connect_window,
@@ -1092,16 +1245,20 @@ pub fn run() {
     app.run(|app, event| {
         if let tauri::RunEvent::Exit = event {
             let s = app.state::<Backend>();
-            if let Some(pid) = *s.analyzer.lock().unwrap() {
+            if let Some(pid) = *s.analyzer.lock().unwrap_or_else(|e| e.into_inner()) {
                 if pid != 0 {
                     let _ = platform::signal(pid, "cancel");
                 }
             }
-            for j in s.jobs.lock().unwrap().values() {
+            for j in s.jobs.lock().unwrap_or_else(|e| e.into_inner()).values() {
                 if j.pid != 0 {
                     let _ = platform::signal(j.pid, "cancel");
                 }
             }
+            if let Ok(dir) = session::dir(app) {
+                session::remove_own(&dir);
+            }
+            download_files::remove_all_active();
         }
     });
 }
@@ -1151,6 +1308,15 @@ mod error_tests {
         assert!(!a.iter().any(|x| x == "--cookies-from-browser"));
         assert_eq!(&b[..a.len()], a.as_slice());
         assert_eq!(&b[a.len()..], ["--cookies-from-browser", "edge"]);
+    }
+    #[test]
+    fn requests_are_not_artificially_delayed() {
+        let args = base(&Settings::default())
+            .unwrap()
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert!(!args.iter().any(|a| a.starts_with("--sleep")));
     }
     #[test]
     fn sensitive_diagnostics_are_not_reflected() {

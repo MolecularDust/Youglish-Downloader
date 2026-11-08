@@ -261,3 +261,19 @@ mod tests {
         }
     }
 }
+
+/// True when the process exists and has not exited. Access denied means it exists.
+pub fn process_alive(pid: u32) -> bool {
+    const STILL_ACTIVE: u32 = 259;
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return io::Error::last_os_error().raw_os_error() == Some(ERROR_ACCESS_DENIED);
+        }
+        let mut code = 0u32;
+        let ok = GetExitCodeProcess(handle, &mut code);
+        CloseHandle(handle);
+        ok == 0 || code == STILL_ACTIVE
+    }
+}

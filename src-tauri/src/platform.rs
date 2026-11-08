@@ -6,6 +6,20 @@ pub fn binary(name: &str) -> Result<PathBuf, String> {
         name.to_string()
     };
     let exe = std::env::current_exe().map_err(|_| "Cannot locate application")?;
+    #[cfg(target_os = "macos")]
+    if name == "yt-dlp" {
+        // Unpacked build: starts in ~0.2 s instead of unpacking itself on every launch.
+        let unpacked = exe.parent().unwrap().join("../Resources/yt-dlp/yt-dlp_macos");
+        if unpacked.is_file() {
+            return Ok(unpacked);
+        }
+        if cfg!(debug_assertions) {
+            let local = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.tools/yt-dlp-dir/yt-dlp_macos");
+            if local.is_file() {
+                return Ok(local);
+            }
+        }
+    }
     let bundled = exe.parent().unwrap().join(&name);
     if bundled.is_file() {
         return Ok(bundled);
@@ -23,6 +37,7 @@ pub fn binary(name: &str) -> Result<PathBuf, String> {
         ]) {
             let p = dir.join(&name);
             if p.is_file() {
+                eprintln!("warning: using unpinned {name} from {}", p.display());
                 return Ok(p);
             }
         }
@@ -31,10 +46,35 @@ pub fn binary(name: &str) -> Result<PathBuf, String> {
         "{name} is missing. Prepare media tools; see README."
     ))
 }
+static CACHE_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+/// Private folder where yt-dlp keeps downloaded player scripts and solved challenges.
+pub fn set_cache_dir(path: PathBuf) {
+    let _ = std::fs::create_dir_all(&path);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700));
+    }
+    let _ = CACHE_DIR.set(path);
+}
+/// The yt-dlp cache folder, unless caching is disabled (YOUGLISH_NO_CACHE=1, for timing comparisons).
+pub fn cache_dir() -> Option<&'static PathBuf> {
+    if std::env::var_os("YOUGLISH_NO_CACHE").is_some_and(|v| v == "1") {
+        return None;
+    }
+    CACHE_DIR.get()
+}
+/// Deno's JIT needs a signing entitlement the release build does not have, so it can only be
+/// enabled in development builds (YOUGLISH_DENO_JIT=1), to measure whether it would help.
+pub fn deno_jit() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("YOUGLISH_DENO_JIT").is_some_and(|v| v == "1")
+}
 pub fn command(name: &str) -> Result<Command, String> {
     let mut c = Command::new(binary(name)?);
     // Interpreter mode works under hardened signing without JIT entitlements.
-    c.env("DENO_V8_FLAGS", "--jitless");
+    if !deno_jit() {
+        c.env("DENO_V8_FLAGS", "--jitless");
+    }
     let exe = std::env::current_exe().map_err(|_| "Cannot locate application")?;
     let bundled_ca = exe
         .parent()
@@ -207,4 +247,32 @@ pub fn spawn(c: &mut Command) -> std::io::Result<std::process::Child> {
 #[cfg(not(windows))]
 pub fn output(c: &mut Command) -> std::io::Result<std::process::Output> {
     c.output()
+}
+
+/// Whether a process id belongs to a running process. Used to recognise leftovers of dead instances.
+pub fn process_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        let r = unsafe { libc::kill(pid as i32, 0) };
+        r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    }
+    #[cfg(windows)]
+    {
+        windows_process::process_alive(pid)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = pid;
+        true
+    }
+}
+
+#[cfg(test)]
+mod process_tests {
+    use super::*;
+    #[test]
+    fn own_process_is_alive_and_an_impossible_pid_is_not() {
+        assert!(process_alive(std::process::id()));
+        assert!(!process_alive(2_147_483_646));
+    }
 }

@@ -11,7 +11,7 @@ Open `src-tauri/target/debug/bundle/macos/YouGlish Downloader.app` after buildin
 3. Edit File Name to a phrase from that video's subtitles. Click **Look Up** or press Enter. Editing or leaving the field does not start a lookup. The button displays a spinner until matching succeeds or fails. This text is also the output filename (the container supplies the extension).
 4. Supplied subtitles are preferred. Only original, untranslated automatic captions are used as fallback. Matching ignores case, punctuation, and apostrophe style; it spans adjacent cues and suppresses overlapping rolling text.
 5. Video selection first defaults In/Out to zero and the full video duration. One lookup match sets In/Out to the containing subtitle segment boundaries, without padding. Multiple matches require choosing an occurrence; no match leaves the existing timings unchanged. These are subtitle boundaries, not word-level acoustic alignment.
-6. Use the matching mini arrows to change either boundary or the length by exactly one second. Reset restores the whole video and clears invalid input text and validation errors. Invalid boundaries are rejected. You can still edit timestamps directly, change Length, drag the timeline, or use Preview selection.
+6. Use the matching mini arrows to change either boundary or the length by exactly one second. Reset restores the whole video and clears invalid input text and validation errors. Invalid boundaries are rejected. You can still edit timestamps directly, type a Length (the padded clip length shown in the field; Out is adjusted to match), drag the timeline, or use Preview selection.
 7. Preview selection temporarily switches the widget area to the inherited YouTube player for accurate seeking. Back to YouGlish results returns to browsing. Set In/Set Out require this preview because YouGlish does not expose a documented absolute playhead time.
 8. Download settings are collapsed initially. The default resolution is the highest available at or below 1080p. At download time a 1080p request also permits lower available source resolutions. Other selected resolutions remain exact.
 9. Choose a destination and add the selection to the inherited sequential download queue. Precise Cut, pause/resume/cancel/retry, subtitle embedding, and Finder reveal are retained.
@@ -22,7 +22,7 @@ Account & Settings defaults to anonymous. Installed supported browsers are detec
 
 `npm run build`, `npm test`, and `npm run lint` check the frontend. `npm run desktop` launches the native development app. `node scripts/desktop.mjs build --debug --bundles app --config src-tauri/tauri.dev-bundle.conf.json` makes a local evaluation bundle.
 
-This workspace reuses a read-only Rust toolchain location from the upstream project, with copied local Cargo caches and dependencies. The `.app` includes yt-dlp, FFmpeg, FFprobe, Deno, and certificate resources. It is a local development build, not a notarized distribution release. Do not use the upstream release signing instructions or artifact hashes as verification of this fork. See `docs/PHONETIC_FORK_STATUS.md` for actual checks and limitations.
+The Rust toolchain version is pinned in `rust-toolchain.toml`; `rustup` installs it on first use. The `.app` includes yt-dlp, FFmpeg, FFprobe, Deno, and certificate resources. It is a local development build, not a notarized distribution release. Do not use the upstream release signing instructions or artifact hashes as verification of this fork. See `docs/PHONETIC_FORK_STATUS.md` for actual checks and limitations.
 
 ## Integration references
 
@@ -55,10 +55,14 @@ npm run prepare:sidecars
 npm run desktop
 ```
 
-The existing local Rust caches are optional and are not part of this repository. A fresh machine uses its installed Rust toolchain.
+Run native unit tests with `cargo test --manifest-path src-tauri/Cargo.toml`. Debug builds fall back to yt-dlp/FFmpeg found on `PATH` and print a warning when they do; release bundles use only the pinned sidecars.
 
 **Windows:** build the portable ZIP with `npm run package:portable` (Windows 11 x64, system WebView2). It includes all four media tools and uses an application-local Data folder. An optional NSIS installer is available via `npm run package:windows`. See [Windows instructions](docs/WINDOWS.md) for status, tested behavior, and remaining limits. macOS packaging commands remain macOS-only.
 
 ## Agent collaboration
 
 For concurrent development or an independent review, start with [collaboration instructions](docs/COLLABORATION.md) and [AGENTS.md](AGENTS.md). Each agent uses a separate branch and working folder. Return changes using the [handoff template](docs/HANDOFF_TEMPLATE.md).
+
+## App-session cookies
+
+With "App’s YouTube session" selected, a Netscape cookie file is written to `sessions/` inside the app’s private cache folder (mode 0600 on macOS) immediately before each Look Up, Analyze or download, and deleted when that yt-dlp run ends. Queued downloads hold no cookie file; they take a fresh snapshot when they start. Files left by a crash or force-quit are removed the next time the app starts, as are stale `.tubecutter-<pid>-*.partial` staging folders in the saved destination. Windows file protection relies on the user-profile folder’s default permissions and has not been tested.

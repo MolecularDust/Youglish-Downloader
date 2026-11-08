@@ -18,3 +18,32 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run lint
+  native:
+    # Rust unit tests only. They need no media tools or network; the app is not built or signed here.
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Create empty placeholder sidecars (the Windows build script requires the files to exist)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          for n in yt-dlp ffmpeg ffprobe deno; do : > "src-tauri/binaries/$n-x86_64-pc-windows-msvc.exe"; done
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Create an empty placeholder yt-dlp (one test only builds its command line)
+        shell: bash
+        run: |
+          mkdir -p .tools/bin
+          if [ "$RUNNER_OS" = Windows ]; then : > .tools/bin/yt-dlp.exe; else : > .tools/bin/yt-dlp; fi
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets
