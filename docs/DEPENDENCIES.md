@@ -9,7 +9,7 @@ React 19 and TypeScript render the interface. Tauri 2 owns the WKWebView, Rust c
 - React / React DOM: MIT, https://github.com/facebook/react
 - Tauri: MIT OR Apache-2.0, https://github.com/tauri-apps/tauri
 - rfd native dialogs: MIT, https://github.com/PolyMeilex/rfd
-- yt-dlp standalone macOS executable: upstream release, includes Python; executable distribution contains additional dependencies and follows upstream bundled licensing (GPLv3+). https://github.com/yt-dlp/yt-dlp/blob/master/THIRD_PARTY_LICENSES.txt
+- yt-dlp macOS unpacked (onedir) release `yt-dlp_macos.zip`, embedded in the app at `Contents/Resources/yt-dlp/` by `scripts/embed-yt-dlp.mjs`. It starts in about 0.2 s; the single-file build unpacked itself on every launch and took about 5 s. The upstream release includes Python; executable distribution contains additional dependencies and follows upstream bundled licensing (GPLv3+). https://github.com/yt-dlp/yt-dlp/blob/master/THIRD_PARTY_LICENSES.txt
 - FFmpeg / FFprobe: static ARM64 release from https://ffmpeg.martin-riedl.de/ ; build enables GPL and version3, including x264/x265 and other libraries. Treat these builds as GPLv3+. Corresponding sources/build recipe must accompany public redistribution under applicable licenses. https://github.com/FFmpeg/FFmpeg and https://github.com/markus-perl/ffmpeg-build-script
 - Deno: MIT with third-party notices, https://github.com/denoland/deno
 - YouTube IFrame API is loaded from YouTube, subject to Google's API terms and required player behavior. Player controls remain unobstructed.

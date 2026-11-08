@@ -16,6 +16,7 @@ pub enum Stage {
     CaptionMetadata,
     Captions,
     Download,
+    PostProcess,
 }
 
 // Only explicit HTTP markers are accepted. Never interpret process exit codes,
@@ -77,6 +78,11 @@ pub fn ffmpeg_exit(text: &str) -> Option<i64> {
 #[derive(Serialize)]
 struct Record {
     schema: u8,
+    build: &'static str,
+    deno_jit: bool,
+    yt_dlp_cache: bool,
+    duration_ms: Option<u64>,
+    phases: Vec<crate::timing::Phase>,
     unix_seconds: u64,
     stage: Stage,
     authentication: &'static str,
@@ -100,7 +106,12 @@ pub fn initialize(directory: PathBuf) {
 fn record(stage: Stage, s: &Settings, code: Option<i32>, stderr: &str) -> Record {
     let t = stderr.to_ascii_lowercase();
     Record {
-        schema: 1,
+        schema: 2,
+        build: env!("YG_BUILD"),
+        deno_jit: crate::platform::deno_jit(),
+        yt_dlp_cache: crate::platform::cache_dir().is_some(),
+        duration_ms: None,
+        phases: Vec::new(),
         unix_seconds: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -132,11 +143,28 @@ fn record(stage: Stage, s: &Settings, code: Option<i32>, stderr: &str) -> Record
     }
 }
 pub fn log(stage: Stage, s: &Settings, code: Option<i32>, stderr: &str) {
+    write(record(stage, s, code, stderr));
+}
+/// Like `log`, with the run's total duration and the timed phases seen on its output.
+pub fn log_timed(
+    stage: Stage,
+    s: &Settings,
+    code: Option<i32>,
+    stderr: &str,
+    trace: &crate::timing::Trace,
+) {
+    let mut entry = record(stage, s, code, stderr);
+    let (duration, phases) = trace.finish();
+    entry.duration_ms = Some(duration);
+    entry.phases = phases;
+    write(entry);
+}
+fn write(entry: Record) {
     let Some(directory) = DIRECTORY.get() else {
         return;
     };
     let Ok(_lock) = LOCK.lock() else { return };
-    let _ = write_record(directory, &record(stage, s, code, stderr));
+    let _ = write_record(directory, &entry);
 }
 fn write_record(directory: &std::path::Path, entry: &Record) -> std::io::Result<()> {
     std::fs::create_dir_all(directory)?;

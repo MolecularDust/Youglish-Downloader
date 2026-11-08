@@ -27,7 +27,10 @@ run(process.execPath, [
   "src-tauri/tauri.bundle.conf.json",
 ]);
 const app = resolve("src-tauri/target/release/bundle/macos/YouGlish Downloader.app");
+run(process.execPath, ["scripts/embed-yt-dlp.mjs", app]);
 const binaries = join(app, "Contents/MacOS");
+const ytDlp = join(app, "Contents/Resources/yt-dlp/yt-dlp_macos");
+const pathOf = (name) => (name === "yt-dlp" ? ytDlp : join(binaries, name));
 // Approved by the user on 2026-10-20. Never apply this entitlement to the main app.
 run("codesign", [
   "--force",
@@ -37,7 +40,7 @@ run("codesign", [
   "src-tauri/yt-dlp.entitlements.plist",
   "--sign",
   "-",
-  join(binaries, "yt-dlp"),
+  ytDlp,
 ]);
 // Deliberately omit --deep: retain the other executables' existing restrictions.
 run("codesign", ["--force", "--options", "runtime", "--sign", "-", app]);
@@ -51,7 +54,7 @@ for (const name of [
 ]) {
   const details = spawnSync(
     "codesign",
-    ["-dv", "--verbose=2", join(binaries, name)],
+    ["-dv", "--verbose=2", pathOf(name)],
     { encoding: "utf8" },
   );
   if (
@@ -61,7 +64,7 @@ for (const name of [
     throw Error(`Hardened runtime is missing from ${name}`);
   const r = spawnSync(
     "codesign",
-    ["-d", "--entitlements", ":-", join(binaries, name)],
+    ["-d", "--entitlements", ":-", pathOf(name)],
     { encoding: "utf8" },
   );
   if (r.status !== 0) throw Error(`Cannot inspect ${name}'s signature`);
@@ -78,7 +81,7 @@ for (const name of [
   )
     throw Error(`Unexpected JIT entitlement on ${name}`);
 }
-run(join(binaries, "yt-dlp"), ["--version"]);
+run(ytDlp, ["--version"]);
 run(
   join(binaries, "deno"),
   ["eval", 'console.log("Signed interpreter runtime: OK")'],
@@ -124,7 +127,7 @@ const hashes = {
 };
 for (const name of ["video-downloader", "yt-dlp", "ffmpeg", "ffprobe", "deno"])
   hashes.files[name] = createHash("sha256")
-    .update(readFileSync(join(binaries, name)))
+    .update(readFileSync(pathOf(name)))
     .digest("hex");
 hashes.files["YouGlish Downloader_0.1.0_aarch64.dmg"] = createHash("sha256")
   .update(readFileSync(finalImage))

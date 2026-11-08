@@ -33,6 +33,8 @@ pub struct Job {
     pub id: String,
     pub title: String,
     pub state: String,
+    /// Stage within a running download: "preparing", "transferring" or "finishing".
+    pub phase: String,
     pub progress: f64,
     pub speed: String,
     pub bytes: String,
@@ -45,6 +47,8 @@ pub struct Job {
     pub request: Request,
     #[serde(skip)]
     pub hidden: bool,
+    #[serde(skip)]
+    pub retried: bool,
 }
 pub fn normalize(input: &str) -> Result<String, String> {
     let u = url::Url::parse(input.trim()).map_err(|_| "Enter a valid YouTube URL")?;
@@ -192,6 +196,7 @@ mod selection_tests {
                     id: state.into(),
                     title: "Test".into(),
                     state: state.into(),
+                    phase: String::new(),
                     progress: 0.,
                     speed: String::new(),
                     bytes: String::new(),
@@ -201,6 +206,7 @@ mod selection_tests {
                     pid: 0,
                     request: request(),
                     hidden: false,
+                    retried: false,
                 },
             );
         }
@@ -224,8 +230,24 @@ mod selection_tests {
     }
 }
 
+/// Names Windows cannot create. Compiled everywhere so the rules are tested on every platform,
+/// but only enforced on Windows.
+fn windows_unsaveable(stem: &str) -> bool {
+    let device = stem.split('.').next().unwrap_or("").to_uppercase();
+    let chars: Vec<char> = device.chars().collect();
+    let numbered = chars.len() == 4
+        && (device.starts_with("COM") || device.starts_with("LPT"))
+        && matches!(chars[3], '1'..='9' | '\u{b9}' | '\u{b2}' | '\u{b3}');
+    stem.ends_with(' ')
+        || stem.contains(['<', '>', '"', '|', '?', '*'])
+        || ["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"].contains(&device.as_str())
+        || numbered
+}
 pub fn output_file_name(input: &str, container: &str) -> Result<String, String> {
-    if input.chars().any(char::is_control) {
+    if input
+        .chars()
+        .any(|c| c.is_control() || matches!(c, '\u{2028}' | '\u{2029}'))
+    {
         return Err("File names cannot contain control characters.".into());
     }
     let input = input.trim();
@@ -240,28 +262,15 @@ pub fn output_file_name(input: &str, container: &str) -> Result<String, String> 
         || stem.len() > 180
         || stem
             .chars()
-            .any(|c| c.is_control() || matches!(c, '/' | '\\' | ':'))
+            .any(|c| c.is_control() || matches!(c, '/' | '\\' | ':' | '\u{2028}' | '\u{2029}'))
     {
         return Err(
             "Enter a file name of up to 180 bytes without slashes, colons, or control characters."
                 .into(),
         );
     }
-    #[cfg(windows)]
-    {
-        let device = stem.split('.').next().unwrap_or("").to_ascii_uppercase();
-        if stem.ends_with(' ')
-            || stem.contains(['<', '>', '"', '|', '?', '*'])
-            || ["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"].contains(&device.as_str())
-            || (device.len() == 4
-                && (device.starts_with("COM") || device.starts_with("LPT"))
-                && device.as_bytes()[3].is_ascii_digit()
-                && device.as_bytes()[3] != b'0')
-        {
-            return Err(
-                "This file name is reserved or contains characters Windows cannot save.".into(),
-            );
-        }
+    if cfg!(windows) && windows_unsaveable(stem) {
+        return Err("This file name is reserved or contains characters Windows cannot save.".into());
     }
     Ok(format!("{stem}.{container}"))
 }
@@ -407,5 +416,25 @@ mod windows_sentence_filename_tests {
         ] {
             assert!(output_file_name(name, "mp4").is_err(), "{name}");
         }
+    }
+}
+
+#[cfg(test)]
+mod windows_rule_tests {
+    use super::*;
+    #[test]
+    fn windows_reserved_names_are_detected_on_every_platform() {
+        for name in [
+            "CON", "con.txt", "NUL", "COM1", "lpt9", "COM\u{b9}", "LPT\u{b3}.x", "CONIN$", "conout$",
+            "a?b", "a*b", "a|b", "a<b", "a\"b", "name ",
+        ] {
+            assert!(windows_unsaveable(name), "{name}");
+        }
+        for name in [
+            "COM0", "COM10", "CONSOLE", "Oh. I'm done.", "café", "COM", "a.CON",
+        ] {
+            assert!(!windows_unsaveable(name), "{name}");
+        }
+        assert!(output_file_name("a\u{2028}b", "mp4").is_err());
     }
 }

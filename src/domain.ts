@@ -25,6 +25,7 @@ export type Job = {
   id: string;
   title: string;
   state: string;
+  phase?: string;
   progress: number;
   speed: string;
   bytes: string;
@@ -171,6 +172,24 @@ export function paddedSection(
   return [Math.max(0, start - extra), Math.min(duration, end + extra)];
 }
 
+/** Base Out that makes the padded clip exactly `length` seconds long. */
+export function endFromPaddedLength(
+  start: number,
+  padding: number,
+  duration: number,
+  length: number,
+): number {
+  const extra = Math.max(0, Math.min(99, Math.trunc(padding)));
+  const clipEnd =
+    Math.round((Math.max(0, start - extra) + length) * 1000) / 1000;
+  if (!Number.isFinite(length) || length <= 0)
+    throw Error("Length must be a positive number of seconds.");
+  if (clipEnd > duration) throw Error("Length does not fit within the video.");
+  const end = Math.round((clipEnd - extra) * 1000) / 1000;
+  if (end <= start) throw Error("Length is too short for the current padding.");
+  return end;
+}
+
 export function stepPaddedLength(
   start: number,
   end: number,
@@ -192,18 +211,26 @@ export function safeFileName(input: string): string {
       (c) =>
         c.codePointAt(0)! > 31 &&
         c.codePointAt(0)! !== 127 &&
+        !/[\p{Cc}\u2028\u2029]/u.test(c) &&
         !'<>:"/\\|?*'.includes(c),
     )
     .join("");
-  name = name.trim().replace(/[. ]+$/, "");
-  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(name))
+  // A final period is valid: the extension is appended after it.
+  name = name.trim();
+  if (/^\.*$/.test(name)) name = "";
+  if (
+    /^(con|prn|aux|nul|conin\$|conout\$|com[1-9\u00b9\u00b2\u00b3]|lpt[1-9\u00b9\u00b2\u00b3])(\.|$)/i.test(
+      name,
+    )
+  )
     name = `_${name}`;
   let result = "";
   for (const c of name) {
     if (new TextEncoder().encode(result + c).length > 180) break;
     result += c;
   }
-  return result.trim().replace(/[. ]+$/, "") || "Speech sample";
+  result = result.trim();
+  return /^\.*$/.test(result) ? "Speech sample" : result;
 }
 export function fileNameNeedsFix(input: string): boolean {
   const stem = input.trim().replace(/\.(mp4|mkv)$/i, "");
@@ -211,6 +238,27 @@ export function fileNameNeedsFix(input: string): boolean {
     stem !== safeFileName(input) ||
     Array.from(input).some(
       (c) => c.codePointAt(0)! < 32 || c.codePointAt(0)! === 127,
-    )
+    ) ||
+    /[\u2028\u2029]/.test(input)
   );
+}
+
+/** Status text and determinate percentage for a queue row; null percent means "indeterminate". */
+export function jobProgress(job: Job): {
+  label: string;
+  percent: number | null;
+} {
+  const running = ["downloading", "merging", "processing"].includes(job.state);
+  if (job.state === "completed") return { label: "completed", percent: 100 };
+  if (job.state === "cooldown") return { label: "Cooling down", percent: null };
+  if (job.state === "downloading" && job.phase === "preparing")
+    return { label: "Preparing", percent: null };
+  if (job.state === "downloading" && job.phase === "finishing")
+    return { label: "Finishing", percent: null };
+  if (running || job.state === "paused")
+    return {
+      label: job.state,
+      percent: job.progress > 0 ? Math.min(100, job.progress) : null,
+    };
+  return { label: job.state, percent: null };
 }

@@ -2,7 +2,7 @@
   {
     "name": "yt-dlp",
     "target": "aarch64-apple-darwin",
-    "sha256": "7f785fa6d6c5bc0aed066cdb880a7ec3b453ec88482c3981559fc9ce70488195",
+    "sha256": "4f54eb67e4e96c7c3ffa49dd5deb81bc348bbb495080889b47d157d5c6d74443",
     "version": "2026.08.19"
   },
   {

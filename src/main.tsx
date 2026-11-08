@@ -11,6 +11,8 @@ import {
   validSection,
   paddedSection,
   stepPaddedLength,
+  jobProgress,
+  endFromPaddedLength,
   codecFamily,
   updateQueue,
   clearQueueRows,
@@ -24,6 +26,8 @@ import {
 } from "./domain";
 import {
   findSubtitleMatches,
+  matchContext,
+  type Cue,
   cleanWidgetCaption,
   defaultHeight,
   type Match,
@@ -136,6 +140,7 @@ function App() {
     [candidate, setCandidate] = useState(""),
     [matches, setMatches] = useState<Match[]>([]),
     [matchChosen, setMatchChosen] = useState(false),
+    [pickerOpen, setPickerOpen] = useState(false),
     [matchStatus, setMatchStatus] = useState(""),
     [fileName, setFileName] = useState(""),
     [fileNameEditing, setFileNameEditing] = useState(false),
@@ -172,7 +177,8 @@ function App() {
     [mode, setMode] = useState("video"),
     [subtitle, setSubtitle] = useState(""),
     [jobs, setJobs] = useState<Job[]>([]);
-  const candidateRef = useRef(""),
+  const captionCues = useRef<Cue[]>([]),
+    candidateRef = useRef(""),
     dirtyName = useRef(false),
     captureCaption = useRef(false),
     matchRequest = useRef(0);
@@ -270,6 +276,7 @@ function App() {
         /^[\w-]{11}$/.test(value)
       ) {
         candidateRef.current = value;
+        setPickerOpen(false);
         matchRequest.current++;
         dirtyName.current = false;
         captureCaption.current = true;
@@ -418,6 +425,7 @@ function App() {
   const selectMatch = (m: Match, v = video) => {
     if (!v) return;
     setMatchChosen(true);
+    setPickerOpen(false);
     setResetVersion((n) => n + 1);
     setInValid(true);
     setOutValid(true);
@@ -471,17 +479,22 @@ function App() {
         const v = cached.video;
         if (!v.duration || !Number.isFinite(v.duration))
           throw Error("Choose a finished video with a finite duration.");
+        captionCues.current = cached.track.cues;
         const found = findSubtitleMatches(cached.track.cues, text);
         setVideo(v);
         setResolution(defaultHeight(v.formats.map((f) => f.height ?? 0)));
         setMatches(found);
         setMatchChosen(false);
+        setPickerOpen(false);
         if (found.length === 1) selectMatch(found[0], v);
-        else
+        else if (found.length) {
           setMatchStatus(
-            found.length
-              ? `${found.length} matches — choose the occurrence below.`
-              : "No subtitle match. Timings were not changed; edit the phrase or set In/Out manually.",
+            `${found.length} matches — choose the occurrence you want.`,
+          );
+          setPickerOpen(true);
+        } else
+          setMatchStatus(
+            "No subtitle match. Timings were not changed; edit the phrase or set In/Out manually.",
           );
         if (found.length === 1)
           setMatchStatus(
@@ -603,7 +616,9 @@ function App() {
           <span className="badge">
             ●{" "}
             {settings.browser || settings.cookiesFile
-              ? settings.browser === "app" ? "App session" : "Browser session"
+              ? settings.browser === "app"
+                ? "App session"
+                : "Browser session"
               : "Anonymous"}
           </span>
         </div>
@@ -672,7 +687,6 @@ function App() {
               Search →
             </button>
           </form>
-
         </section>
         <section className="video-card">
           <div className="video-info">
@@ -953,10 +967,22 @@ function App() {
                       (seconds)
                     </span>
                     <div className="number-stepper">
-                      <input
-                        aria-label="Length in seconds"
-                        readOnly
+                      <LengthInput
+                        key={`length-${resetVersion}`}
                         value={Math.round((clipEnd - clipStart) * 1000) / 1000}
+                        onValidity={setLengthValid}
+                        onCommit={(length) => {
+                          setEnd(
+                            endFromPaddedLength(
+                              start,
+                              padding,
+                              duration,
+                              length,
+                            ),
+                          );
+                          setInValid(true);
+                          setOutValid(true);
+                        }}
                       />
                       <StepperButtons
                         label="Length"
@@ -1315,12 +1341,12 @@ function App() {
                 <div className="job-body">
                   <strong>{j.title}</strong>
                   <div className="job-status">
-                    <span>
-                      {j.state === "cooldown" ? "Cooling down" : j.state}
-                    </span>
+                    <span>{jobProgress(j).label}</span>
                     <span>
                       {[
-                        `${j.progress.toFixed(1)}%`,
+                        jobProgress(j).percent === null
+                          ? ""
+                          : `${jobProgress(j).percent!.toFixed(1)}%`,
                         j.speed,
                         j.bytes,
                         j.eta ? `${j.eta} remaining` : "",
@@ -1329,7 +1355,10 @@ function App() {
                         .join(" · ")}
                     </span>
                   </div>
-                  <progress value={j.progress} max="100" />
+                  <progress
+                    value={jobProgress(j).percent ?? undefined}
+                    max="100"
+                  />
                   {j.message && <p>{j.message}</p>}
                 </div>
                 <div className="job-actions">
@@ -1381,6 +1410,44 @@ function App() {
           <span>Made for your personal library.</span>
         </footer>
       </main>
+      {pickerOpen && matches.length > 1 && video && (
+        <div className="modal-backdrop">
+          <section
+            className="modal match-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose an occurrence"
+          >
+            <h2>Choose the occurrence</h2>
+            <p>
+              This phrase appears {matches.length} times in the video. YouGlish
+              does not tell the app which one you picked, so choose it here.
+            </p>
+            <ul>
+              {matches.map((m, i) => {
+                const ctx = matchContext(captionCues.current, m);
+                return (
+                  <li key={`${m.start}-${i}`}>
+                    <button onClick={() => selectMatch(m)}>
+                      <strong>
+                        {preciseTimestamp(m.start)} – {preciseTimestamp(m.end)}
+                      </strong>
+                      <span>
+                        {ctx.before && `…${ctx.before} `}
+                        <mark>{m.text}</mark>
+                        {ctx.after && ` ${ctx.after}…`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="error-popup-actions">
+              <button onClick={() => setPickerOpen(false)}>Decide later</button>
+            </div>
+          </section>
+        </div>
+      )}
       {error && (
         <ErrorPopup
           message={error}
@@ -1431,11 +1498,28 @@ function App() {
               to reload the player.
             </p>
             <div className="playback-test-actions">
-              <button onClick={() => act(() => invoke("youtube_sign_in_window"))}>1. Sign in to Google ↗</button>
-              <button onClick={() => act(() => invoke("youtube_connect_window"))}>2. Connect YouTube ↗</button>
-              <button onClick={() => act(() => invoke("youtube_playback_test"))}>Check playback ↗</button>
+              <button
+                onClick={() => act(() => invoke("youtube_sign_in_window"))}
+              >
+                1. Sign in to Google ↗
+              </button>
+              <button
+                onClick={() => act(() => invoke("youtube_connect_window"))}
+              >
+                2. Connect YouTube ↗
+              </button>
+              <button
+                onClick={() => act(() => invoke("youtube_playback_test"))}
+              >
+                Check playback ↗
+              </button>
             </div>
-            <p>Your login is kept in the app’s browser storage. On YouTube, an account avatar confirms sign-in; use its account menu to switch accounts or sign out. A successful check plays a sample video in that window.</p>
+            <p>
+              Your login is kept in the app’s browser storage. On YouTube, an
+              account avatar confirms sign-in; use its account menu to switch
+              accounts or sign out. A successful check plays a sample video in
+              that window.
+            </p>
             <h3>Subtitle and download authentication</h3>
             <p>
               Use an existing browser session for videos you’re authorized to
@@ -1487,12 +1571,14 @@ function App() {
               </select>
             </Field>
             <p className="notice">
-              Selecting the app’s session uses only its YouTube cookies in a temporary file, removed when the operation finishes. Selecting another browser authorizes yt-dlp to read its cookies when you
-              analyze or download. Your operating system may request browser cookie-store
-
-              access. Cookies are never printed or copied into app settings, or
-              injected into YouGlish. This setting controls subtitle retrieval
-              and downloads; the widget uses its own WebView session.
+              Selecting the app’s session uses only its YouTube cookies in a
+              temporary file, removed when the operation finishes. Selecting
+              another browser authorizes yt-dlp to read its cookies when you
+              analyze or download. Your operating system may request browser
+              cookie-store access. Cookies are never printed or copied into app
+              settings, or injected into YouGlish. This setting controls
+              subtitle retrieval and downloads; the widget uses its own WebView
+              session.
             </p>
             <Field label="Appearance">
               <select
@@ -1552,6 +1638,55 @@ function StepperButtons({
         ▾
       </button>
     </span>
+  );
+}
+function LengthInput({
+  value,
+  onCommit,
+  onValidity,
+}: {
+  value: number;
+  onCommit: (length: number) => void;
+  onValidity: (valid: boolean) => void;
+}) {
+  const [text, setText] = useState(String(value)),
+    [invalid, setInvalid] = useState("");
+  useEffect(() => {
+    setText(String(value));
+    setInvalid("");
+    onValidity(true);
+  }, [value, onValidity]);
+  const commit = () => {
+    try {
+      const trimmed = text.trim();
+      if (!/^\d+(\.\d{1,3})?$/.test(trimmed))
+        throw Error("Enter seconds, e.g. 7.32.");
+      onCommit(Number(trimmed));
+      setInvalid("");
+      onValidity(true);
+    } catch (e) {
+      setInvalid(e instanceof Error ? e.message : String(e));
+      onValidity(false);
+    }
+  };
+  return (
+    <>
+      <input
+        aria-label="Length in seconds"
+        inputMode="decimal"
+        value={text}
+        aria-invalid={!!invalid}
+        onChange={(e) => {
+          setText(e.target.value);
+          onValidity(false);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+      />
+      {invalid && <small role="alert">{invalid}</small>}
+    </>
   );
 }
 function TimeInput({

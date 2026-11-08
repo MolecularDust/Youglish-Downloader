@@ -63,14 +63,27 @@ export function defaultHeight(heights: number[]): string {
   return eligible.length ? String(Math.max(...eligible)) : "1080";
 }
 
+/**
+ * Decode percent escapes leniently. The widget can mix standard escapes (%20) with the old
+ * %uXXXX form (for example %u200B); decoding the whole string at once fails on the latter.
+ */
+function decodeLoose(value: string): string {
+  return value
+    .replace(/%u([0-9a-f]{4})/gi, (_, hex: string) =>
+      String.fromCharCode(parseInt(hex, 16)),
+    )
+    .replace(/(?:%[0-9a-f]{2})+/gi, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run; // not valid UTF-8: keep it as literal text
+      }
+    });
+}
+
 /** Widget captions can arrive URL encoded and contain markup/entities. */
 export function cleanWidgetCaption(value: string): string {
-  let text = value;
-  try {
-    text = decodeURIComponent(text);
-  } catch {
-    /* A literal percent sign is valid text. */
-  }
+  const text = decodeLoose(value);
   const entities: Record<string, string> = {
     nbsp: " ",
     amp: "&",
@@ -86,6 +99,36 @@ export function cleanWidgetCaption(value: string): string {
       /&(nbsp|amp|quot|apos|lt|gt);/gi,
       (_, key: string) => entities[key.toLowerCase()],
     )
+    .replace(/[\u200b-\u200d\u2060\ufeff]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function cueIndex(cues: Cue[], match: Match): number {
+  let best = -1,
+    distance = Infinity;
+  cues.forEach((c, i) => {
+    const d = Math.abs(c.start - match.start);
+    if (d < distance) {
+      best = i;
+      distance = d;
+    }
+  });
+  return best;
+}
+/** Neighbouring caption text around a match, to tell repeated occurrences apart. */
+export function matchContext(
+  cues: Cue[],
+  match: Match,
+): { before: string; after: string } {
+  const i = cueIndex(cues, match);
+  if (i < 0) return { before: "", after: "" };
+  const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+  return {
+    before: clean(cues[i - 1]?.text ?? ""),
+    after: [cues[i + 1], cues[i + 2]]
+      .map((c) => clean(c?.text ?? ""))
+      .filter(Boolean)
+      .join(" "),
+  };
 }

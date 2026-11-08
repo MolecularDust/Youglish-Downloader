@@ -3,6 +3,7 @@ import {
   findSubtitleMatches,
   defaultHeight,
   cleanWidgetCaption,
+  matchContext,
 } from "./subtitles";
 describe("subtitle selection", () => {
   it("finds a phrase spanning adjacent cues with punctuation and contractions", () => {
@@ -61,10 +62,52 @@ describe("widget caption decoding", () => {
       "I mean, ya",
     );
   });
+  it("decodes captions that mix %uXXXX escapes with percent escapes", () => {
+    expect(
+      cleanWidgetCaption(
+        "%u200BYeah...%20speaking%20of%20which%2C%20where%20even%20%5B%5B%5Bis%5D%5D%5D%20%5B%5B%5Bhe%5D%5D%5D%3F",
+      ),
+    ).toBe("Yeah... speaking of which, where even is he?");
+    expect(cleanWidgetCaption("it%u2019s%20fine")).toBe("it\u2019s fine");
+    expect(cleanWidgetCaption("%u200B%20")).toBe("");
+    expect(cleanWidgetCaption("50%ab sure")).toBe("50%ab sure");
+  });
   it("ignores blank end-of-video captions and preserves literal percent signs", () => {
     expect(cleanWidgetCaption("&nbsp;")).toBe("");
     expect(cleanWidgetCaption("100% sure &amp; ready")).toBe(
       "100% sure & ready",
     );
+  });
+});
+
+describe("repeated occurrences", () => {
+  const cues = [
+    { start: 112, end: 113, text: "my mother looked at me and she said," },
+    { start: 113.6, end: 115.9, text: '"How did they treat you?"' },
+    { start: 116, end: 118, text: "I was seven. I did not understand." },
+    ...Array.from({ length: 12 }, (_, n) => ({
+      start: 120 + n * 10,
+      end: 125 + n * 10,
+      text: `unrelated filler caption number ${n}`,
+    })),
+    {
+      start: 298,
+      end: 300,
+      text: "my mother's question hangs in the air for me:",
+    },
+    { start: 300.5, end: 302.6, text: "How did they treat you?" },
+    {
+      start: 303,
+      end: 306,
+      text: "Now, I do not raise this issue to complain",
+    },
+  ];
+  const found = findSubtitleMatches(cues, "How did they treat you?");
+  it("finds both occurrences", () => expect(found).toHaveLength(2));
+  it("describes the neighbouring captions of a match", () => {
+    expect(matchContext(cues, found[1])).toEqual({
+      before: "my mother's question hangs in the air for me:",
+      after: "Now, I do not raise this issue to complain",
+    });
   });
 });

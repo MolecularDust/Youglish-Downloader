@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 const toolDir = resolve(process.env.MEDIA_BIN_DIR ?? ".tools/bin");
 const out = resolve(process.env.MEDIA_TEST_DIR ?? ".tools/integration");
@@ -33,7 +33,10 @@ const video = "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
 async function run(name, args) {
   return await new Promise((finish, reject) => {
     const c = spawn(
-      join(toolDir, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"),
+      process.platform === "darwin" &&
+        existsSync(join(toolDir, "../Resources/yt-dlp/yt-dlp_macos"))
+        ? join(toolDir, "../Resources/yt-dlp/yt-dlp_macos")
+        : join(toolDir, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"),
       [...common, ...args, "--", video],
       {
         env: {
