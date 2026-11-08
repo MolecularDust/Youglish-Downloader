@@ -1413,18 +1413,6 @@ function App() {
               <button onClick={() => setShowSettings(false)}>Done</button>
             </div>
             <h3>YouGlish playback account</h3>
-            <p>Sign in to Google first, then connect YouTube and select your channel if asked. Close the account window when finished and search again to reload the player.</p>
-            <div className="playback-test-actions">
-              <button onClick={() => act(() => invoke("youtube_sign_in_window"))}>1. Sign in to Google ↗</button>
-              <button onClick={() => act(() => invoke("youtube_connect_window"))}>2. Connect YouTube ↗</button>
-              <button onClick={() => act(() => invoke("youtube_playback_test"))}>Check playback ↗</button>
-            </div>
-            <p>Your login is kept in the app’s browser storage. On YouTube, an account avatar confirms sign-in; use its account menu to switch accounts or sign out. A successful check plays a sample video in that window.</p>
-            <h3>Subtitle and download authentication</h3>
-            <p>
-              Use an existing browser session for videos you’re authorized to
-              access. Anonymous is the default.
-            </p>
             <p>
               Recommended: sign in to YouTube in your normal browser. Passkeys
               and security keys work there. Then choose that browser under
@@ -1436,9 +1424,22 @@ function App() {
               </button>
             </div>
             <p>
-              Alternatively, use “1. Sign in to Google” above. Passkeys and
-              security keys may fail inside the app, so use your password and
-              phone confirmation there.
+              Alternatively, sign in inside the app. Passkeys and security keys
+              may fail there, so use your password and phone confirmation. Sign
+              in to Google first, then connect YouTube and select your channel
+              if asked. Close the account window when finished and search again
+              to reload the player.
+            </p>
+            <div className="playback-test-actions">
+              <button onClick={() => act(() => invoke("youtube_sign_in_window"))}>1. Sign in to Google ↗</button>
+              <button onClick={() => act(() => invoke("youtube_connect_window"))}>2. Connect YouTube ↗</button>
+              <button onClick={() => act(() => invoke("youtube_playback_test"))}>Check playback ↗</button>
+            </div>
+            <p>Your login is kept in the app’s browser storage. On YouTube, an account avatar confirms sign-in; use its account menu to switch accounts or sign out. A successful check plays a sample video in that window.</p>
+            <h3>Subtitle and download authentication</h3>
+            <p>
+              Use an existing browser session for videos you’re authorized to
+              access. Anonymous is the default.
             </p>
             <Field label="Download authentication">
               <select

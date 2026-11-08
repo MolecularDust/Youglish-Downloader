@@ -764,6 +764,8 @@ footer > span:first-child {
   border: 1px solid var(--line);
   width: 480px;
   max-width: 100%;
+  max-height: calc(100vh - 50px);
+  overflow-y: auto;
   padding: 25px;
   border-radius: 15px;
   box-shadow: 0 20px 100px #0003;
