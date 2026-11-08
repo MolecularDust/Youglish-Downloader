@@ -870,8 +870,9 @@ fn reveal(s: State<Backend>, id: String) -> Result<(), String> {
 }
 /// Open the official site as the top-level document for a playback comparison.
 /// No IPC capabilities are granted to this remote-content window.
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn test_youglish_window(
+async fn test_youglish_window(
     app: tauri::AppHandle,
     phrase: String,
     language: String,
@@ -883,24 +884,27 @@ fn test_youglish_window(
 
 /// Use the same persistent, non-incognito webview as the playback test.
 /// Authentication happens on Google's pages; no credentials are read by the app.
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_sign_in_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_sign_in_window(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://accounts.google.com/").unwrap(),
     )
 }
 
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_playback_test(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_playback_test(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://www.youtube.com/watch?v=I2xDZlpInik&t=1034s").unwrap(),
     )
 }
 
+// Async on purpose: a synchronous command that creates a webview window can deadlock on Windows.
 #[tauri::command]
-fn youtube_connect_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn youtube_connect_window(app: tauri::AppHandle) -> Result<(), String> {
     show_session_window(
         app,
         url::Url::parse("https://www.youtube.com/signin").unwrap(),

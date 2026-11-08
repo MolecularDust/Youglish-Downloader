@@ -67,7 +67,7 @@ writeFileSync(
 const ps = `$ErrorActionPreference='Stop'
 $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio/Installer/vswhere.exe'
 $vs=& $vswhere -latest -products * -property installationPath
-$crt=Get-ChildItem (Join-Path $vs 'VC/Redist/MSVC') -Filter Microsoft.VC143.CRT -Directory -Recurse | Where-Object FullName -match '[\\\\/]x64[\\\\/]' | Sort-Object FullName -Descending | Select-Object -First 1
+$crt=Get-ChildItem (Join-Path $vs 'VC/Redist/MSVC') -Filter 'Microsoft.VC*.CRT' -Directory -Recurse | Where-Object FullName -match '[\\\\/]x64[\\\\/]' | Sort-Object FullName -Descending | Select-Object -First 1
 if(!$crt){throw 'Cannot locate redistributable x64 CRT'}
 Copy-Item (Join-Path $crt.FullName '*.dll') -Destination $env:YG_STAGE
 Add-Type -AssemblyName System.IO.Compression
