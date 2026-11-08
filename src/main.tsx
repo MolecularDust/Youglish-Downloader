@@ -124,6 +124,9 @@ const defaults: Settings = {
   cookiesFile: "",
   appearance: "system",
 };
+// Chromium browsers lock their cookie database on Windows while they run, so signing in through
+// the browser can't be used there. macOS has no such lock.
+const isWindows = /Windows/.test(navigator.userAgent);
 function App() {
   const [settings, setSettings] = useState<Settings>(defaults),
     [showSettings, setShowSettings] = useState(false),
@@ -1480,22 +1483,30 @@ function App() {
               <button onClick={() => setShowSettings(false)}>Done</button>
             </div>
             <h3>YouGlish playback account</h3>
+            {!isWindows && (
+              <>
+                <p>
+                  Recommended: sign in to YouTube in your normal browser.
+                  Passkeys and security keys work there. Then choose that browser
+                  under Download authentication below. The app never sees your
+                  password.
+                </p>
+                <div className="playback-test-actions">
+                  <button
+                    onClick={() => act(() => invoke("open_browser_sign_in"))}
+                  >
+                    Sign in with my browser ↗
+                  </button>
+                </div>
+              </>
+            )}
             <p>
-              Recommended: sign in to YouTube in your normal browser. Passkeys
-              and security keys work there. Then choose that browser under
-              Download authentication below. The app never sees your password.
-            </p>
-            <div className="playback-test-actions">
-              <button onClick={() => act(() => invoke("open_browser_sign_in"))}>
-                Sign in in my browser ↗
-              </button>
-            </div>
-            <p>
-              Alternatively, sign in inside the app. Passkeys and security keys
-              may fail there, so use your password and phone confirmation. Sign
-              in to Google first, then connect YouTube and select your channel
-              if asked. Close the account window when finished and search again
-              to reload the player.
+              {isWindows
+                ? "Sign in inside the app. Passkeys and security keys may fail there, so use your password and phone confirmation."
+                : "Alternatively, sign in inside the app. Passkeys and security keys may fail there, so use your password and phone confirmation."}{" "}
+              Sign in to Google first, then connect YouTube and select your
+              channel if asked. Close the account window when finished and
+              search again to reload the player.
             </p>
             <div className="playback-test-actions">
               <button
