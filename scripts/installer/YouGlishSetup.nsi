@@ -110,8 +110,25 @@ Function DirectoryPre
   ${EndIf}
 FunctionEnd
 
+; A running copy locks its program files, so they can't be replaced. Ask the user to close it first.
+Function WaitForAppClosed
+retry:
+  ; nsExec returns 0 when tasklist finds the running program.
+  nsExec::Exec 'cmd /c tasklist /FI "IMAGENAME eq ${EXE}" /NH | find /I "${EXE}" >nul'
+  Pop $0
+  ${If} $0 != 0
+    Return
+  ${EndIf}
+  IfSilent fail
+  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "${APPNAME} is running. Close it, then click Retry to continue installing." IDRETRY retry
+fail:
+  Abort "${APPNAME} is still running. Close it and run this setup again."
+FunctionEnd
+
 Section "Install"
+  Call WaitForAppClosed
   SetOutPath "$INSTDIR"
+  SetOverwrite on
   File /r "${PAYLOAD}\*.*"
 
   ${If} $Mode == "install"
