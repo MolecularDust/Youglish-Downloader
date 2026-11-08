@@ -47,9 +47,9 @@ pub fn retrieve(
         return Err("Unsupported caption language code".into());
     }
     let mut c = base(&settings)?;
-    if cfg!(debug_assertions) {
-        c.arg("--verbose"); // development builds only: makes yt-dlp print its phases for timing
-    }
+    // Verbose makes yt-dlp print its phases. timing::run records only fixed phase labels with their
+    // times, so Look Up timings in the diagnostics log show which step is slow, in release builds too.
+    c.arg("--verbose");
     let (o, trace) = crate::timing::run(c.args(["--dump-single-json", "--skip-download", "--", &normalized]))
         .map_err(|_| "Cannot start caption worker")?;
     crate::diagnostics::log_timed(
@@ -107,9 +107,7 @@ pub fn retrieve(
     } else {
         "--write-subs"
     });
-    if cfg!(debug_assertions) {
-        c.arg("--verbose");
-    }
+    c.arg("--verbose");
     let (o, trace) = crate::timing::run(c.arg("-o").arg(template).arg("--load-info-json").arg(&info))
         .map_err(|_| "Cannot retrieve captions")?;
     crate::diagnostics::log_timed(
