@@ -1,13 +1,20 @@
 name: Shared frontend checks
-on: [push, pull_request, workflow_dispatch]
+# Minutes are metered: macOS runners cost 10x Linux, Windows 2x. So pull requests run on Windows only,
+# the macOS Rust tests run when something lands on main (or by hand), and a new push cancels the old run.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   frontend:
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    # Plain npm build, tests and lint: the same code on every platform, so one runner is enough.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,7 +29,7 @@ jobs:
     # Rust unit tests only. They need no media tools or network; the app is not built or signed here.
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["windows-latest"]' || '["windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
