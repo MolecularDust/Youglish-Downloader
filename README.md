@@ -14,6 +14,23 @@ Download only content you own or have permission to download.
 
 A desktop fork of TubeCutter for manually finding speech examples with the official YouGlish widget. This project has its own app identifier and preferences.
 
+## Download
+
+- **Windows:** the setup installer (install normally, or a portable copy) is on the [Releases page](https://github.com/MolecularDust/Youglish-Downloader/releases). Look for **YouGlish-Downloader-Setup_0.1.0_x64.exe** in the v0.2.0-windows release. It is not code-signed, so Windows SmartScreen may warn on first run.
+- **macOS (Apple Silicon):** open **YouGlish-Downloader-Installer.dmg** from the [v0.2.0-macos release](https://github.com/MolecularDust/Youglish-Downloader/releases/tag/v0.2.0-macos). It is not notarized, so macOS will ask you to confirm it on first open.
+
+## Set up YouTube access
+
+1. Open the app and click **Account & Settings**.
+2. Under **YouGlish playback account**, click **1. Sign in to Google ↗**, then **2. Connect YouTube ↗**, and choose your channel if asked. Close the account window when you’re done. **Check playback ↗** plays a sample video to confirm it works.
+3. Under **Subtitle and download authentication**, choose **App’s YouTube session** for **Download authentication**.
+
+You’re ready to use YouGlish Downloader.
+
+To use a browser you already have signed in to instead, choose it under **Download authentication**. On Windows, close that browser before you search: Chromium browsers lock their cookie file while they run, so the app’s own session is the reliable choice there. Only use your own account. Do not import or share anyone else’s cookies.
+
+You can also keep **Anonymous**, but YouTube’s anti-bot checks are stricter for anonymous access, and some videos will fail.
+
 ## Use
 
 Open `src-tauri/target/debug/bundle/macos/YouGlish Downloader.app` after building, or run `npm run desktop` for development.
@@ -29,18 +46,6 @@ Open `src-tauri/target/debug/bundle/macos/YouGlish Downloader.app` after buildin
 9. Choose a destination and add the selection to the inherited sequential download queue. Precise Cut, pause/resume/cancel/retry, subtitle embedding, and Finder reveal are retained.
 
 Account & Settings defaults to anonymous. Installed supported browsers are detected in normal macOS application locations. Selecting one lets yt-dlp read its local cookie store for subtitles/downloads; cookies are not injected into YouGlish or stored in settings. The widget uses its own WebView session. App preferences and queue identity are separate from TubeCutter.
-
-## Set up YouTube access
-
-1. Open the app and click **Account & Settings**.
-2. Under **YouGlish playback account**, click **1. Sign in to Google ↗**, then **2. Connect YouTube ↗**, and choose your channel if asked. Close the account window when you’re done. **Check playback ↗** plays a sample video to confirm it works.
-3. Under **Subtitle and download authentication**, choose **App’s YouTube session** for **Download authentication**.
-
-You’re ready to use YouGlish Downloader.
-
-To use a browser you already have signed in to instead, choose it under **Download authentication**. On Windows, close that browser before you search: Chromium browsers lock their cookie file while they run, so the app’s own session is the reliable choice there. Only use your own account. Do not import or share anyone else’s cookies.
-
-You can also keep **Anonymous**, but YouTube’s anti-bot checks are stricter for anonymous access, and some videos will fail.
 
 ## Development
 
