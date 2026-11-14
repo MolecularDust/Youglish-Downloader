@@ -17,7 +17,7 @@ A desktop fork of TubeCutter for manually finding speech examples with the offic
 ## Download
 
 - **Windows:** [Download the latest release](https://github.com/MolecularDust/Youglish-Downloader/releases/latest). Choose a regular install or a portable copy.
-- **macOS:** [Download the latest release](https://github.com/MolecularDust/Youglish-Downloader/releases/latest).
+- **macOS (Apple silicon):** [Download the macOS release](https://github.com/MolecularDust/Youglish-Downloader/releases/tag/v0.3.0-macos).
 
 ## Set up YouTube access
 
