@@ -1,3 +1,46 @@
+<!-- languages:start -->
+<div align="center">
+
+<details>
+<summary><b>🌐 Language · Idioma · Langue · Sprache · Язык · 语言 · 言語 · 언어 · भाषा · لغة</b></summary>
+<br>
+
+<table>
+  <tr>
+    <td align="center"><b>English</b></td>
+    <td align="center"><a href="docs/i18n/README.ar.md">العربية</a></td>
+    <td align="center"><a href="docs/i18n/README.bn.md">বাংলা</a></td>
+    <td align="center"><a href="docs/i18n/README.zh-Hans.md">简体中文</a></td>
+    <td align="center"><a href="docs/i18n/README.fil.md">Filipino</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/i18n/README.fr.md">Français</a></td>
+    <td align="center"><a href="docs/i18n/README.de.md">Deutsch</a></td>
+    <td align="center"><a href="docs/i18n/README.hi.md">हिन्दी</a></td>
+    <td align="center"><a href="docs/i18n/README.id.md">Bahasa Indonesia</a></td>
+    <td align="center"><a href="docs/i18n/README.it.md">Italiano</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/i18n/README.ja.md">日本語</a></td>
+    <td align="center"><a href="docs/i18n/README.ko.md">한국어</a></td>
+    <td align="center"><a href="docs/i18n/README.fa.md">فارسی</a></td>
+    <td align="center"><a href="docs/i18n/README.pt-BR.md">Português (Brasil)</a></td>
+    <td align="center"><a href="docs/i18n/README.ru.md">Русский</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/i18n/README.es.md">Español</a></td>
+    <td align="center"><a href="docs/i18n/README.te.md">తెలుగు</a></td>
+    <td align="center"><a href="docs/i18n/README.th.md">ไทย</a></td>
+    <td align="center"><a href="docs/i18n/README.tr.md">Türkçe</a></td>
+    <td align="center"><a href="docs/i18n/README.vi.md">Tiếng Việt</a></td>
+  </tr>
+</table>
+
+</details>
+
+</div>
+<!-- languages:end -->
+
 # YouGlish Downloader
 
 ### 🎧 Hear it. Trim it. Keep the moment.
@@ -46,6 +89,12 @@ Open `src-tauri/target/debug/bundle/macos/YouGlish Downloader.app` after buildin
 9. Choose a destination and add the selection to the inherited sequential download queue. Precise Cut, pause/resume/cancel/retry, subtitle embedding, and Finder reveal are retained.
 
 Account & Settings defaults to anonymous. Installed supported browsers are detected in normal macOS application locations. Selecting one lets yt-dlp read its local cookie store for subtitles/downloads; cookies are not injected into YouGlish or stored in settings. The widget uses its own WebView session. App preferences and queue identity are separate from TubeCutter.
+
+## Language
+
+The app's interface is available in English and 19 other languages: Arabic, Bengali, Chinese (Simplified), Filipino, French, German, Hindi, Indonesian, Italian, Japanese, Korean, Persian, Portuguese (Brazil), Russian, Spanish, Telugu, Thai, Turkish and Vietnamese. It follows your system's language by default. To choose another, open **Account & Settings → Language**; the choice applies at once and is remembered. Arabic and Persian lay out right to left.
+
+Translations are maintained in `src/locales/<code>.json`, with the English text as the key. See [localization notes](docs/LOCALIZATION.md) for how to add or correct a translation.
 
 ## Development
 
