@@ -8,14 +8,14 @@
   {
     "name": "ffmpeg",
     "target": "aarch64-apple-darwin",
-    "sha256": "c51688eaaf4093f3b88a2aeee43fddca73ea3b155afba29dfafd2342b44fd2bf",
-    "version": "ffmpeg version 9.0.2-https://www.martin-riedl.de Copyright (c) 2000-2026 the FFmpeg developers"
+    "sha256": "acc987b0547ce25efc46efba247efe726846df65b4e68aa7be365396d7d76fd1",
+    "version": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
   },
   {
     "name": "ffprobe",
     "target": "aarch64-apple-darwin",
-    "sha256": "96f035db680234a6746954c2d189cba899c627e24dac2e8f3bb1b72714b942ce",
-    "version": "ffprobe version 9.0.2-https://www.martin-riedl.de Copyright (c) 2007-2026 the FFmpeg developers"
+    "sha256": "bb012489d56cd5dec00e5e3bef0d8c7d1f028b43966b75c24426260dd32bb81c",
+    "version": "ffprobe version n9.0.2 Copyright (c) 2007-2026 the FFmpeg developers"
   },
   {
     "name": "deno",
