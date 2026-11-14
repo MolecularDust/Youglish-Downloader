@@ -8,14 +8,14 @@
   {
     "name": "ffmpeg",
     "target": "x86_64-pc-windows-msvc",
-    "sha256": "3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec",
-    "version": "ffmpeg version 9.0.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+    "sha256": "3d65ab9cca95f0b1bba23c03ff52711675b132a1456dd6c75ba379ee89e5a6ed",
+    "version": "ffmpeg version N-128889-g88c46fce27-20261113 Copyright (c) 2000-2026 the FFmpeg developers"
   },
   {
     "name": "ffprobe",
     "target": "x86_64-pc-windows-msvc",
-    "sha256": "f0d36ecbbdd3bcfac3efa078c96c7271c2e68b3810595552ac3b7f17e9a65c52",
-    "version": "ffprobe version 9.0.2-essentials_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers"
+    "sha256": "499f9f3d4948e6c74e5c83ea30a3b7c7248f79bfe4ae612b9aa7a405518f4334",
+    "version": "ffprobe version N-128889-g88c46fce27-20261113 Copyright (c) 2007-2026 the FFmpeg developers"
   },
   {
     "name": "deno",
