@@ -10,6 +10,8 @@
 
 Download only content you own or have permission to download.
 
+![YouGlish Downloader app: search a phrase, trim the clip, and add it to the download queue](docs/images/app-preview.webp)
+
 A desktop fork of TubeCutter for manually finding speech examples with the official YouGlish widget. This project has its own app identifier and preferences.
 
 ## Use
