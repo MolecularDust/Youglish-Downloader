@@ -8,7 +8,7 @@
 - 👩‍🏫 **Teachers:** build ready-to-play example clips for class, tailored to your lesson.
 - 🔎 **Anyone hunting a phrase:** find where a phrase is spoken on YouTube, in the language you pick, and keep just that moment.
 
-The interface speaks 19 languages besides English. Download only content you own or have permission to download.
+Download only content you own or have permission to download.
 
 A desktop fork of TubeCutter for manually finding speech examples with the official YouGlish widget. This project has its own app identifier and preferences.
 
