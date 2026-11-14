@@ -16,8 +16,10 @@ A desktop fork of TubeCutter for manually finding speech examples with the offic
 
 ## Download
 
-- **Windows:** the setup installer (install normally, or a portable copy) is on the [Releases page](https://github.com/MolecularDust/Youglish-Downloader/releases). Look for **YouGlish-Downloader-Setup_0.1.0_x64.exe** in the v0.2.0-windows release. It is not code-signed, so Windows SmartScreen may warn on first run.
-- **macOS (Apple Silicon):** open **YouGlish-Downloader-Installer.dmg** from the [v0.2.0-macos release](https://github.com/MolecularDust/Youglish-Downloader/releases/tag/v0.2.0-macos). It is not notarized, so macOS will ask you to confirm it on first open.
+- **Windows (x64):** [YouGlish-Downloader-Setup_0.1.0_x64.exe](https://github.com/MolecularDust/Youglish-Downloader/releases/latest/download/YouGlish-Downloader-Setup_0.1.0_x64.exe). Install normally, or choose a portable copy in the setup. It is not code-signed, so Windows SmartScreen may warn on first run.
+- **macOS (Apple Silicon):** [YouGlish-Downloader-Installer.dmg](https://github.com/MolecularDust/Youglish-Downloader/releases/latest/download/YouGlish-Downloader-Installer.dmg). It is not notarized, so macOS will ask you to confirm it on first open.
+
+These links always point to the latest release, so they stay the same as new versions come out.
 
 ## Set up YouTube access
 
