@@ -30,6 +30,18 @@ Open `src-tauri/target/debug/bundle/macos/YouGlish Downloader.app` after buildin
 
 Account & Settings defaults to anonymous. Installed supported browsers are detected in normal macOS application locations. Selecting one lets yt-dlp read its local cookie store for subtitles/downloads; cookies are not injected into YouGlish or stored in settings. The widget uses its own WebView session. App preferences and queue identity are separate from TubeCutter.
 
+## Set up YouTube access
+
+1. Open the app and click **Account & Settings**.
+2. Under **YouGlish playback account**, click **1. Sign in to Google ↗**, then **2. Connect YouTube ↗**, and choose your channel if asked. Close the account window when you’re done. **Check playback ↗** plays a sample video to confirm it works.
+3. Under **Subtitle and download authentication**, choose **App’s YouTube session** for **Download authentication**.
+
+You’re ready to use YouGlish Downloader.
+
+To use a browser you already have signed in to instead, choose it under **Download authentication**. On Windows, close that browser before you search: Chromium browsers lock their cookie file while they run, so the app’s own session is the reliable choice there. Only use your own account. Do not import or share anyone else’s cookies.
+
+You can also keep **Anonymous**, but YouTube’s anti-bot checks are stricter for anonymous access, and some videos will fail.
+
 ## Development
 
 `npm run build`, `npm test`, and `npm run lint` check the frontend. `npm run desktop` launches the native development app. `node scripts/desktop.mjs build --debug --bundles app --config src-tauri/tauri.dev-bundle.conf.json` makes a local evaluation bundle.
