@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>YouGlish Downloader</title>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <readme file="readme.html" mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64"/>
+    <!-- Only "this Mac": no choosing a disk or a folder, it goes to Applications. -->
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="11.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default">
+            <line choice="local.mike.YouGlishDownloader"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="local.mike.YouGlishDownloader" visible="false">
+        <pkg-ref id="local.mike.YouGlishDownloader"/>
+    </choice>
+    <pkg-ref id="local.mike.YouGlishDownloader" version="@VERSION@" onConclusion="none">YouGlish-Downloader-component.pkg</pkg-ref>
+</installer-gui-script>

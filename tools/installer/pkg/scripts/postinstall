@@ -1,0 +1,7 @@
+#!/bin/sh
+# Opens YouGlish Downloader for the person at the keyboard (this script runs as root).
+uid=$(/usr/bin/stat -f%u /dev/console)
+if [ -n "$uid" ] && [ "$uid" -gt 0 ] 2>/dev/null; then
+    /bin/launchctl asuser "$uid" /usr/bin/open "/Applications/YouGlish Downloader.app" >/dev/null 2>&1 &
+fi
+exit 0
