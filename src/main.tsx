@@ -35,6 +35,16 @@ import {
 } from "./subtitles";
 import "./style.css";
 import appIcon from "./assets/app-icon.png";
+import {
+  LANGUAGES,
+  getLanguageChoice,
+  initLanguage,
+  languageName,
+  setLanguageChoice,
+  t,
+  tb,
+  useLanguage,
+} from "./i18n";
 const languageCodes: Record<string, string> = {
   english: "en",
   french: "fr",
@@ -125,6 +135,7 @@ const defaults: Settings = {
   appearance: "system",
 };
 function App() {
+  useLanguage();
   const [settings, setSettings] = useState<Settings>(defaults),
     [showSettings, setShowSettings] = useState(false),
     [browsers, setBrowsers] = useState<string[]>([]),
@@ -218,7 +229,9 @@ function App() {
     if (!isTauri()) {
       setOrigin(window.location.origin);
       setMatchStatus(
-        "Browser preview: open the desktop app for subtitle matching and downloads.",
+        t(
+          "Browser preview: open the desktop app for subtitle matching and downloads.",
+        ),
       );
       return;
     }
@@ -288,7 +301,7 @@ function App() {
         setFileName("");
         setFileNameEdited(false);
         setMatchStatus(
-          "Choose your example, then click Look Up to load its timings.",
+          t("Choose your example, then click Look Up to load its timings."),
         );
         setStart(0);
         setEnd(0);
@@ -317,7 +330,7 @@ function App() {
         setFileNameEdited(true);
       }
       if (type === "fetch" && value === 0)
-        setMatchStatus("No YouGlish results found.");
+        setMatchStatus(t("No YouGlish results found."));
       if (type === "fetch" && value === -1) {
         candidateRef.current = "";
         matchRequest.current++;
@@ -330,18 +343,27 @@ function App() {
         setBusy(false);
         setStart(0);
         setEnd(0);
-        setMatchStatus("Searching YouGlish…");
+        setMatchStatus(t("Searching YouGlish…"));
       }
       if (type === "preview") setPreviewMode(!!value);
       if (type === "widget-error")
         setPlayerError(
           value === 1
-            ? "YouTube could not play this sample. Check the message in the player for details, or try the next result. The downloader’s cookies setting does not sign in this player."
+            ? t(
+                "YouTube could not play this sample. Check the message in the player for details, or try the next result. The downloader’s cookies setting does not sign in this player.",
+              )
             : value === 2
-              ? "YouGlish reports that this browser is unsupported. Try the YouGlish website in your browser."
+              ? t(
+                  "YouGlish reports that this browser is unsupported. Try the YouGlish website in your browser.",
+                )
               : value === 3
-                ? "YouGlish timed out. Check your connection and try searching again."
-                : `YouGlish reported an error (${value}). Try another sample or search again.`,
+                ? t(
+                    "YouGlish timed out. Check your connection and try searching again.",
+                  )
+                : t(
+                    "YouGlish reported an error ({code}). Try another sample or search again.",
+                    { code: String(value) },
+                  ),
         );
       if (type === "time") {
         if (
@@ -385,10 +407,17 @@ function App() {
         setPreviewActive(false);
         setPlayerError(
           value === 153
-            ? "YouTube rejected the player identity (error 153). Try reopening the app; this WebView may not send the required Referer."
+            ? t(
+                "YouTube rejected the player identity (error 153). Try reopening the app; this WebView may not send the required Referer.",
+              )
             : [101, 150].includes(value)
-              ? "The owner does not allow this video to be embedded. Downloads may still be available."
-              : `YouTube player error ${value}. Check video availability and network access.`,
+              ? t(
+                  "The owner does not allow this video to be embedded. Downloads may still be available.",
+                )
+              : t(
+                  "YouTube player error {code}. Check video availability and network access.",
+                  { code: String(value) },
+                ),
         );
       }
     };
@@ -434,7 +463,7 @@ function App() {
     setEnd(Math.min(v.duration, m.end));
     setTime(m.start);
     setMatchStatus(
-      "Matched subtitle segment boundaries. Adjust In/Out as needed.",
+      t("Matched subtitle segment boundaries. Adjust In/Out as needed."),
     );
   };
   const matchFilename = (phrase?: string, selectedId?: string) =>
@@ -443,7 +472,9 @@ function App() {
         id = selectedId ?? candidateRef.current;
       if (!id || !text) return;
       if (!isTauri()) {
-        setMatchStatus("Open the desktop app to retrieve and match subtitles.");
+        setMatchStatus(
+          t("Open the desktop app to retrieve and match subtitles."),
+        );
         return;
       }
       const request = ++matchRequest.current;
@@ -453,7 +484,7 @@ function App() {
       );
       setBusy(true);
       setMetadataLoading(true);
-      setMatchStatus("Retrieving subtitles…");
+      setMatchStatus(t("Retrieving subtitles…"));
       try {
         let cached = captionCache.current.get(cacheKey);
         if (!cached) {
@@ -489,21 +520,30 @@ function App() {
         if (found.length === 1) selectMatch(found[0], v);
         else if (found.length) {
           setMatchStatus(
-            `${found.length} matches — choose the occurrence you want.`,
+            t("{count} matches — choose the occurrence you want.", {
+              count: found.length,
+            }),
           );
           setPickerOpen(true);
         } else
           setMatchStatus(
-            "No subtitle match. Timings were not changed; edit the phrase or set In/Out manually.",
+            t(
+              "No subtitle match. Timings were not changed; edit the phrase or set In/Out manually.",
+            ),
           );
         if (found.length === 1)
           setMatchStatus(
-            `${cached.track.kind} captions · ${cached.track.language}. Subtitle segment boundaries found; adjust In/Out as needed.`,
+            t(
+              "{kind} captions · {language}. Subtitle segment boundaries found; adjust In/Out as needed.",
+              { kind: tb(cached.track.kind), language: cached.track.language },
+            ),
           );
       } catch (e) {
         if (request === matchRequest.current) {
           setMatchStatus(
-            "Subtitle matching failed. You can set In/Out manually, or edit the phrase and retry.",
+            t(
+              "Subtitle matching failed. You can set In/Out manually, or edit the phrase and retry.",
+            ),
           );
           throw e;
         }
@@ -600,30 +640,30 @@ function App() {
           <img className="app-icon" src={appIcon} alt="" />
           <div>
             <strong>YouGlish Downloader</strong>
-            <small>Find a voice. Keep the moment.</small>
+            <small>{t("Find a voice. Keep the moment.")}</small>
           </div>
         </div>
         <button onClick={() => setShowSettings(true)}>
-          ◎ <span>Account & Settings</span>
+          ◎ <span>{t("Account & Settings")}</span>
         </button>
       </header>
       <main>
         <div className="intro">
           <div>
-            <p className="eyebrow">YOUR NEXT SPEECH EXAMPLE</p>
-            <h1>Find something worth hearing.</h1>
+            <p className="eyebrow">{t("YOUR NEXT SPEECH EXAMPLE")}</p>
+            <h1>{t("Find something worth hearing.")}</h1>
           </div>
           <span className="badge">
             ●{" "}
             {settings.browser || settings.cookiesFile
               ? settings.browser === "app"
-                ? "App session"
-                : "Browser session"
-              : "Anonymous"}
+                ? t("App session")
+                : t("Browser session")
+              : t("Anonymous")}
           </span>
         </div>
         <section className="url-card">
-          <label htmlFor="phrase">Search phrase</label>
+          <label htmlFor="phrase">{t("Search phrase")}</label>
           <form
             className="search-row"
             onSubmit={(e) => {
@@ -654,11 +694,11 @@ function App() {
               spellCheck={false}
               value={phrase}
               onChange={(e) => setPhrase(e.target.value)}
-              placeholder="Enter a word or phrase"
+              placeholder={t("Enter a word or phrase")}
               required
             />
             <select
-              aria-label="Language"
+              aria-label={t("Language")}
               value={language}
               onChange={(e) => {
                 setLanguage(e.target.value);
@@ -667,24 +707,26 @@ function App() {
             >
               {Object.keys(languageCodes).map((l) => (
                 <option key={l} value={l}>
-                  {l[0].toUpperCase() + l.slice(1)}
+                  {languageName(languageCodes[l]).replace(/^./, (c) =>
+                    c.toUpperCase(),
+                  )}
                 </option>
               ))}
             </select>
             <select
-              aria-label="Accent"
+              aria-label={t("Accent")}
               value={accent}
               onChange={(e) => setAccent(e.target.value)}
             >
-              <option value="">All accents</option>
+              <option value="">{t("All accents")}</option>
               {(accents[language] ?? []).map(([code, name]) => (
                 <option key={code} value={code}>
-                  {name}
+                  {tb(name)}
                 </option>
               ))}
             </select>
             <button className="primary" type="submit">
-              Search →
+              {t("Search →")}
             </button>
           </form>
         </section>
@@ -693,12 +735,14 @@ function App() {
             <div>
               <span className="eyebrow">YOUGLISH</span>
               <h2>
-                {video?.title ?? "Listen, watch, and choose your example."}
+                {video?.title ?? t("Listen, watch, and choose your example.")}
               </h2>
               <p>
                 {video
                   ? `${video.channel} · ${timestamp(video.duration)}`
-                  : "Browse YouGlish, choose an example, then click Look Up."}
+                  : t(
+                      "Browse YouGlish, choose an example, then click Look Up.",
+                    )}
               </p>
             </div>
           </div>
@@ -715,17 +759,17 @@ function App() {
               <iframe
                 ref={iframe}
                 key={search.run}
-                title="YouGlish pronunciation search"
+                title={t("YouGlish pronunciation search")}
                 style={{ height: widgetHeight }}
-                src={`${origin}/youglish.html?token=${token.current}&query=${encodeURIComponent(search.phrase)}&lang=${encodeURIComponent(search.language)}&accent=${encodeURIComponent(search.accent)}`}
+                src={`${origin}/youglish.html?token=${token.current}&query=${encodeURIComponent(search.phrase)}&lang=${encodeURIComponent(search.language)}&accent=${encodeURIComponent(search.accent)}&loading=${encodeURIComponent(t("Loading YouGlish…"))}&back=${encodeURIComponent(t("← Back to YouGlish results"))}`}
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
                 referrerPolicy="strict-origin-when-cross-origin"
               />
             ) : (
               <div className="empty-player">
-                <h3>Your next example starts here</h3>
-                <p>Enter a phrase and search YouGlish.</p>
+                <h3>{t("Your next example starts here")}</h3>
+                <p>{t("Enter a phrase and search YouGlish.")}</p>
               </div>
             )}
           </div>
@@ -740,7 +784,7 @@ function App() {
                   )
                 }
               >
-                Open in YouTube ↗
+                {t("Open in YouTube ↗")}
               </button>
               <button
                 onClick={() =>
@@ -751,7 +795,7 @@ function App() {
                   )
                 }
               >
-                Copy link
+                {t("Copy link")}
               </button>
             </div>
           )}
@@ -762,7 +806,7 @@ function App() {
                 <div className="timeline-labels">
                   <span>{timestamp(0)}</span>
                   <span>
-                    {timestamp(time)} <small>PLAYHEAD</small>
+                    {timestamp(time)} <small>{t("PLAYHEAD")}</small>
                   </span>
                   <span>{timestamp(duration)}</span>
                 </div>
@@ -822,14 +866,14 @@ function App() {
                     <button
                       className="playhead-handle"
                       data-timeline-control="playhead"
-                      aria-label="Playhead"
+                      aria-label={t("Playhead")}
                       role="slider"
                       aria-valuemin={0}
                       aria-valuemax={duration}
                       aria-valuenow={time}
                       aria-valuetext={preciseTimestamp(time)}
                       disabled={!ready || !video || metadataLoading}
-                      title="Drag to seek"
+                      title={t("Drag to seek")}
                       onKeyDown={(e) => {
                         if (
                           ["ArrowLeft", "ArrowRight", "Home", "End"].includes(
@@ -856,7 +900,9 @@ function App() {
                       key={which}
                       className={`marker ${which}`}
                       disabled={!video || metadataLoading}
-                      aria-label={`${which} marker`}
+                      aria-label={
+                        which === "in" ? t("In marker") : t("Out marker")
+                      }
                       role="slider"
                       aria-valuemin={0}
                       aria-valuemax={duration}
@@ -895,7 +941,7 @@ function App() {
                 >
                   <div className="point">
                     <button disabled={!ready || !previewMode} onClick={setIn}>
-                      Set In <kbd>I</kbd>
+                      {t("Set In")} <kbd>I</kbd>
                     </button>
                     <TimeInput
                       key={`in-${resetVersion}`}
@@ -911,7 +957,7 @@ function App() {
                   </div>
                   <div className="point">
                     <button disabled={!ready || !previewMode} onClick={setOut}>
-                      Set Out <kbd>O</kbd>
+                      {t("Set Out")} <kbd>O</kbd>
                     </button>
                     <TimeInput
                       key={`out-${resetVersion}`}
@@ -927,14 +973,14 @@ function App() {
                   </div>
                   <div className="time-input length-input padding-input">
                     <label className="length-label" htmlFor="padding">
-                      Padding
+                      {t("Padding")}
                       <br />
-                      (seconds)
+                      {t("(seconds)")}
                     </label>
                     <div className="number-stepper">
                       <input
                         id="padding"
-                        aria-label="Padding in seconds"
+                        aria-label={t("Padding in seconds")}
                         inputMode="numeric"
                         maxLength={2}
                         value={
@@ -962,9 +1008,9 @@ function App() {
                   </div>
                   <div className="time-input length-input calculated-length">
                     <span className="length-label">
-                      Length
+                      {t("Length")}
                       <br />
-                      (seconds)
+                      {t("(seconds)")}
                     </span>
                     <div className="number-stepper">
                       <LengthInput
@@ -1023,7 +1069,7 @@ function App() {
                       send("play");
                     }}
                   >
-                    {previewActive ? "■ Stop" : "▶ Preview selection"}
+                    {previewActive ? t("■ Stop") : t("▶ Preview selection")}
                   </button>
                   <button
                     className="reset-button"
@@ -1043,27 +1089,31 @@ function App() {
                       setMatches([]);
                       setMatchChosen(false);
                       setResetVersion((n) => n + 1);
-                      setMatchStatus("Full video selected.");
+                      setMatchStatus(t("Full video selected."));
                     }}
                   >
-                    Reset
+                    {t("Reset")}
                   </button>
                 </fieldset>
                 {padding > 0 && (
                   <small className="padding-summary">
-                    With padding: {preciseTimestamp(clipStart)} –{" "}
-                    {preciseTimestamp(clipEnd)}. Padding stops at the video
-                    boundaries.
+                    {t(
+                      "With padding: {start} – {end}. Padding stops at the video boundaries.",
+                      {
+                        start: preciseTimestamp(clipStart),
+                        end: preciseTimestamp(clipEnd),
+                      },
+                    )}
                   </small>
                 )}
               </fieldset>
               <div
                 className={`download-filename${fileNameEditing || fileNameEdited ? " is-editing" : ""}`}
               >
-                <span>File name</span>
+                <span>{t("File name")}</span>
                 <div>
                   <input
-                    aria-label="File name"
+                    aria-label={t("File name")}
                     value={fileName}
                     readOnly={busy}
                     onFocus={() => {
@@ -1087,7 +1137,9 @@ function App() {
                         matchFilename();
                       }
                     }}
-                    placeholder="Choose a YouGlish sample, then enter a sentence from its subtitles"
+                    placeholder={t(
+                      "Choose a YouGlish sample, then enter a sentence from its subtitles",
+                    )}
                   />
                   <span>.{container}</span>
                   <button
@@ -1095,22 +1147,23 @@ function App() {
                     className="lookup-button primary"
                     disabled={busy || !candidate || !fileName.trim()}
                     aria-busy={busy}
-                    aria-label={busy ? "Looking up subtitles" : "Look Up"}
+                    aria-label={busy ? t("Looking up subtitles") : t("Look Up")}
                     onClick={() => void matchFilename()}
                   >
                     {busy ? (
                       <>
                         <span className="analyze-spinner" aria-hidden="true" />
-                        <span>Looking up…</span>
+                        <span>{t("Looking up…")}</span>
                       </>
                     ) : (
-                      "Look Up"
+                      t("Look Up")
                     )}
                   </button>
                 </div>
                 <small>
-                  Choose an example, then click Look Up (or press Enter) to load
-                  its timings. The same text names your file.
+                  {t(
+                    "Choose an example, then click Look Up (or press Enter) to load its timings. The same text names your file.",
+                  )}
                 </small>
               </div>
               <p className="match-status" role="status">
@@ -1134,23 +1187,28 @@ function App() {
                 <input
                   type="checkbox"
                   disabled={!video || busy}
-                  aria-label="Precise Cut"
+                  aria-label={t("Precise Cut")}
                   aria-describedby="precise-cut-description"
                   checked={precise}
                   onChange={(e) => setPrecise(e.target.checked)}
                 />
-                <span>Precise Cut</span>
+                <span>{t("Precise Cut")}</span>
                 <small id="precise-cut-description">
                   {precise
-                    ? "Re-encodes for accurate boundaries. Automatic uses H.264 / AAC."
-                    : "Fast Cut preserves streams; boundaries may align to keyframes."}
+                    ? t(
+                        "Re-encodes for accurate boundaries. Automatic uses H.264 / AAC.",
+                      )
+                    : t(
+                        "Fast Cut preserves streams; boundaries may align to keyframes.",
+                      )}
                 </small>
               </div>
             </fieldset>
             {!video && (
               <small className="trim-hint">
-                Click Look Up when you have chosen your example. Padding extends
-                both ends, stopping at the beginning and end of the video.
+                {t(
+                  "Click Look Up when you have chosen your example. Padding extends both ends, stopping at the beginning and end of the video.",
+                )}
               </small>
             )}
           </div>
@@ -1158,11 +1216,13 @@ function App() {
         <section className="settings-card">
           <details>
             <summary>
-              Download settings{" "}
-              <small>1080p preferred · lower resolution if unavailable</small>
+              {t("Download settings")}{" "}
+              <small>
+                {t("1080p preferred · lower resolution if unavailable")}
+              </small>
             </summary>
             <div className="options">
-              <Field label="Container">
+              <Field label={t("Container")}>
                 <select
                   value={container}
                   onChange={(e) => setContainer(e.target.value)}
@@ -1171,7 +1231,7 @@ function App() {
                   <option value="mkv">MKV</option>
                 </select>
               </Field>
-              <Field label="Resolution">
+              <Field label={t("Resolution")}>
                 <select
                   disabled={mode === "audio"}
                   value={resolution}
@@ -1180,22 +1240,26 @@ function App() {
                     setCodec("auto");
                   }}
                 >
-                  <option value="">Best available</option>
+                  <option value="">{t("Best available")}</option>
                   {heights.map((h) => (
                     <option key={h} value={h}>
-                      {h === 2160 ? "4K · " : h === 1440 ? "2K · " : ""}
+                      {h === 2160
+                        ? `${t("4K")} · `
+                        : h === 1440
+                          ? `${t("2K")} · `
+                          : ""}
                       {h}p
                     </option>
                   ))}
                 </select>
               </Field>
-              <Field label="Video codec">
+              <Field label={t("Video codec")}>
                 <select
                   disabled={mode === "audio"}
                   value={codec}
                   onChange={(e) => setCodec(e.target.value)}
                 >
-                  <option value="auto">Automatic</option>
+                  <option value="auto">{t("Automatic")}</option>
                   {[
                     ["h264", "H.264"],
                     ["hevc", "H.265 / HEVC"],
@@ -1204,48 +1268,56 @@ function App() {
                   ].map(([v, l]) => (
                     <option key={v} value={v} disabled={!codecs.has(v)}>
                       {l}
-                      {!codecs.has(v) ? " · unavailable" : ""}
+                      {!codecs.has(v) ? ` · ${t("unavailable")}` : ""}
                     </option>
                   ))}
                 </select>
               </Field>
-              <Field label="Audio">
+              <Field label={t("Audio")}>
                 <select
                   value={audio}
                   disabled={mode === "audio"}
                   onChange={(e) => setAudio(e.target.value)}
                 >
-                  <option value="best">Best available</option>
-                  <option value="original">Original compatible stream</option>
-                  <option value="none">No audio</option>
+                  <option value="best">{t("Best available")}</option>
+                  <option value="original">
+                    {t("Original compatible stream")}
+                  </option>
+                  <option value="none">{t("No audio")}</option>
                 </select>
               </Field>
-              <Field label="Subtitles">
+              <Field label={t("Subtitles")}>
                 <select
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
                 >
-                  <option value="">None</option>
+                  <option value="">{t("None")}</option>
                   {Object.keys(video?.subtitles ?? {}).map((l) => (
                     <option key={l}>{l}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="Download mode">
+              <Field label={t("Download mode")}>
                 <select value={mode} onChange={(e) => setMode(e.target.value)}>
-                  <option value="video">Video + audio</option>
-                  <option value="audio">Audio only</option>
+                  <option value="video">{t("Video + audio")}</option>
+                  <option value="audio">{t("Audio only")}</option>
                 </select>
               </Field>
             </div>
             <p className="format-note">
               ⓘ{" "}
               {precise && section
-                ? "Precise cut re-encodes. Resolution is retained and the output duration is checked."
+                ? t(
+                    "Precise cut re-encodes. Resolution is retained and the output duration is checked.",
+                  )
                 : compatible
-                  ? "Original streams are preserved where the selected container supports them; separate tracks require merging."
-                  : "This codec may not be supported in MP4. Choose MKV to preserve the original stream."}{" "}
-              Unavailable combinations fail explicitly.
+                  ? t(
+                      "Original streams are preserved where the selected container supports them; separate tracks require merging.",
+                    )
+                  : t(
+                      "This codec may not be supported in MP4. Choose MKV to preserve the original stream.",
+                    )}{" "}
+              {t("Unavailable combinations fail explicitly.")}
             </p>
           </details>
           <div className="destination">
@@ -1264,8 +1336,8 @@ function App() {
               <path d="M3 9h18" />
             </svg>
             <div>
-              <small>SAVE TO</small>
-              <p>{settings.destination || "Choose a download folder"}</p>
+              <small>{t("SAVE TO")}</small>
+              <p>{settings.destination || t("Choose a download folder")}</p>
             </div>
             <button
               onClick={() =>
@@ -1275,7 +1347,7 @@ function App() {
                 })
               }
             >
-              Choose folder…
+              {t("Choose folder…")}
             </button>
           </div>
           <button
@@ -1285,17 +1357,17 @@ function App() {
             }
             onClick={enqueue}
           >
-            ＋ Add to Download Queue{" "}
-            <span>{section ? "Selected section" : "Entire video"}</span>
+            {t("＋ Add to Download Queue")}{" "}
+            <span>{section ? t("Selected section") : t("Entire video")}</span>
           </button>
           <p className="legal">
-            Download only content you own or have permission to download.
+            {t("Download only content you own or have permission to download.")}
           </p>
         </section>
         <section className="queue">
           <div className="section-heading">
             <h2>
-              Download queue <span className="count">{jobs.length}</span>
+              {t("Download queue")} <span className="count">{jobs.length}</span>
             </h2>
             <button
               disabled={
@@ -1313,15 +1385,15 @@ function App() {
                 })
               }
             >
-              Clear Finished
+              {t("Clear Finished")}
             </button>
           </div>
           {!jobs.length ? (
             <div className="queue-empty">
               <span>⇣</span>
               <div>
-                <strong>A home for your downloads</strong>
-                <p>Add a video and we’ll take it from here.</p>
+                <strong>{t("A home for your downloads")}</strong>
+                <p>{t("Add a video and we’ll take it from here.")}</p>
               </div>
             </div>
           ) : (
@@ -1341,7 +1413,7 @@ function App() {
                 <div className="job-body">
                   <strong>{j.title}</strong>
                   <div className="job-status">
-                    <span>{jobProgress(j).label}</span>
+                    <span>{tb(jobProgress(j).label)}</span>
                     <span>
                       {[
                         jobProgress(j).percent === null
@@ -1359,20 +1431,20 @@ function App() {
                     value={jobProgress(j).percent ?? undefined}
                     max="100"
                   />
-                  {j.message && <p>{j.message}</p>}
+                  {j.message && <p>{tb(j.message)}</p>}
                 </div>
                 <div className="job-actions">
                   {j.state === "completed" ? (
                     <button
                       onClick={() => act(() => invoke("reveal", { id: j.id }))}
                     >
-                      Reveal file
+                      {t("Reveal file")}
                     </button>
                   ) : j.state === "failed" ? (
                     <button
                       onClick={() => act(() => invoke("retry", { id: j.id }))}
                     >
-                      Retry
+                      {t("Retry")}
                     </button>
                   ) : j.state === "canceled" ? null : (
                     <>
@@ -1387,7 +1459,7 @@ function App() {
                           )
                         }
                       >
-                        {j.state === "paused" ? "Resume" : "Pause"}
+                        {j.state === "paused" ? t("Resume") : t("Pause")}
                       </button>
                       <button
                         onClick={() =>
@@ -1396,7 +1468,7 @@ function App() {
                           )
                         }
                       >
-                        Cancel
+                        {t("Cancel")}
                       </button>
                     </>
                   )}
@@ -1407,7 +1479,7 @@ function App() {
         </section>
         <footer>
           <span>YOUGLISH DOWNLOADER</span>
-          <span>Made for your personal library.</span>
+          <span>{t("Made for your personal library.")}</span>
         </footer>
       </main>
       {pickerOpen && matches.length > 1 && video && (
@@ -1416,12 +1488,14 @@ function App() {
             className="modal match-picker"
             role="dialog"
             aria-modal="true"
-            aria-label="Choose an occurrence"
+            aria-label={t("Choose an occurrence")}
           >
-            <h2>Choose the occurrence</h2>
+            <h2>{t("Choose the occurrence")}</h2>
             <p>
-              This phrase appears {matches.length} times in the video. YouGlish
-              does not tell the app which one you picked, so choose it here.
+              {t(
+                "This phrase appears {count} times in the video. YouGlish does not tell the app which one you picked, so choose it here.",
+                { count: matches.length },
+              )}
             </p>
             <ul>
               {matches.map((m, i) => {
@@ -1443,7 +1517,9 @@ function App() {
               })}
             </ul>
             <div className="error-popup-actions">
-              <button onClick={() => setPickerOpen(false)}>Decide later</button>
+              <button onClick={() => setPickerOpen(false)}>
+                {t("Decide later")}
+              </button>
             </div>
           </section>
         </div>
@@ -1473,49 +1549,49 @@ function App() {
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Account and Settings"
+            aria-label={t("Account and Settings")}
           >
             <div className="section-heading">
-              <h2>Account & Settings</h2>
-              <button onClick={() => setShowSettings(false)}>Done</button>
+              <h2>{t("Account & Settings")}</h2>
+              <button onClick={() => setShowSettings(false)}>
+                {t("Done")}
+              </button>
             </div>
-            <h3>YouGlish playback account</h3>
+            <h3>{t("YouGlish playback account")}</h3>
             <p>
-              Sign in inside the app. Passkeys and security keys may fail there,
-              so use your password and phone confirmation. Sign in to Google
-              first, then connect YouTube and select your channel if asked.
-              Close the account window when finished and search again to reload
-              the player.
+              {t(
+                "Sign in inside the app. Passkeys and security keys may fail there, so use your password and phone confirmation. Sign in to Google first, then connect YouTube and select your channel if asked. Close the account window when finished and search again to reload the player.",
+              )}
             </p>
             <div className="playback-test-actions">
               <button
                 onClick={() => act(() => invoke("youtube_sign_in_window"))}
               >
-                1. Sign in to Google ↗
+                {t("1. Sign in to Google ↗")}
               </button>
               <button
                 onClick={() => act(() => invoke("youtube_connect_window"))}
               >
-                2. Connect YouTube ↗
+                {t("2. Connect YouTube ↗")}
               </button>
               <button
                 onClick={() => act(() => invoke("youtube_playback_test"))}
               >
-                Check playback ↗
+                {t("Check playback ↗")}
               </button>
             </div>
             <p>
-              Your login is kept in the app’s browser storage. On YouTube, an
-              account avatar confirms sign-in; use its account menu to switch
-              accounts or sign out. A successful check plays a sample video in
-              that window.
+              {t(
+                "Your login is kept in the app’s browser storage. On YouTube, an account avatar confirms sign-in; use its account menu to switch accounts or sign out. A successful check plays a sample video in that window.",
+              )}
             </p>
-            <h3>Subtitle and download authentication</h3>
+            <h3>{t("Subtitle and download authentication")}</h3>
             <p>
-              Use an existing browser session for videos you’re authorized to
-              access. Anonymous is the default.
+              {t(
+                "Use an existing browser session for videos you’re authorized to access. Anonymous is the default.",
+              )}
             </p>
-            <Field label="Download authentication">
+            <Field label={t("Download authentication")}>
               <select
                 value={settings.browser || (settings.cookiesFile ? "file" : "")}
                 onChange={(e) =>
@@ -1537,8 +1613,8 @@ function App() {
                   })
                 }
               >
-                <option value="">Anonymous</option>
-                <option value="app">App’s YouTube session</option>
+                <option value="">{t("Anonymous")}</option>
+                <option value="app">{t("App’s YouTube session")}</option>
                 {browsers.map((browser) => (
                   <option key={browser} value={browser}>
                     {
@@ -1557,29 +1633,37 @@ function App() {
                     }
                   </option>
                 ))}
-                <option value="file">Import Netscape cookies…</option>
+                <option value="file">{t("Import Netscape cookies…")}</option>
               </select>
             </Field>
             <p className="notice">
-              Selecting the app’s session uses only its YouTube cookies in a
-              temporary file, removed when the operation finishes. Selecting
-              another browser authorizes yt-dlp to read its cookies when you
-              analyze or download. Your operating system may request browser
-              cookie-store access. Cookies are never printed or copied into app
-              settings, or injected into YouGlish. This setting controls
-              subtitle retrieval and downloads; the widget uses its own WebView
-              session.
+              {t(
+                "Selecting the app’s session uses only its YouTube cookies in a temporary file, removed when the operation finishes. Selecting another browser authorizes yt-dlp to read its cookies when you analyze or download. Your operating system may request browser cookie-store access. Cookies are never printed or copied into app settings, or injected into YouGlish. This setting controls subtitle retrieval and downloads; the widget uses its own WebView session.",
+              )}
             </p>
-            <Field label="Appearance">
+            <Field label={t("Language")}>
+              <select
+                value={getLanguageChoice()}
+                onChange={(e) => void setLanguageChoice(e.target.value)}
+              >
+                <option value="">{t("Same as system")}</option>
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t("Appearance")}>
               <select
                 value={settings.appearance}
                 onChange={(e) =>
                   act(() => save({ ...settings, appearance: e.target.value }))
                 }
               >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
+                <option value="system">{t("System")}</option>
+                <option value="light">{t("Light")}</option>
+                <option value="dark">{t("Dark")}</option>
               </select>
             </Field>
           </section>
@@ -1613,7 +1697,7 @@ function StepperButtons({
     <span className="stepper-buttons">
       <button
         type="button"
-        aria-label={`Increase ${label} by one second`}
+        aria-label={t("Increase {name} by one second", { name: tb(label) })}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => onStep(1)}
       >
@@ -1621,7 +1705,7 @@ function StepperButtons({
       </button>
       <button
         type="button"
-        aria-label={`Decrease ${label} by one second`}
+        aria-label={t("Decrease {name} by one second", { name: tb(label) })}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => onStep(-1)}
       >
@@ -1662,7 +1746,7 @@ function LengthInput({
   return (
     <>
       <input
-        aria-label="Length in seconds"
+        aria-label={t("Length in seconds")}
         inputMode="decimal"
         value={text}
         aria-invalid={!!invalid}
@@ -1675,7 +1759,7 @@ function LengthInput({
           if (e.key === "Enter") e.currentTarget.blur();
         }}
       />
-      {invalid && <small role="alert">{invalid}</small>}
+      {invalid && <small role="alert">{tb(invalid)}</small>}
     </>
   );
 }
@@ -1721,7 +1805,7 @@ function TimeInput({
     <div className="time-input">
       <div className="number-stepper">
         <input
-          aria-label={`${label} timestamp`}
+          aria-label={t("{name} timestamp", { name: tb(label) })}
           value={text}
           aria-invalid={!!invalid}
           onChange={(e) => {
@@ -1735,14 +1819,16 @@ function TimeInput({
         />
         <StepperButtons label={label} onStep={step} />
       </div>
-      {invalid && <small role="alert">{invalid}</small>}
+      {invalid && <small role="alert">{tb(invalid)}</small>}
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+initLanguage().finally(() =>
+  createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  ),
 );
 
 function ErrorPopup({
@@ -1772,22 +1858,22 @@ function ErrorPopup({
       }}
     >
       <h2 id="error-title">
-        {nameFix ? "Fix file name" : "Something went wrong"}
+        {nameFix ? t("Fix file name") : t("Something went wrong")}
       </h2>
-      <p id="error-message">{message}</p>
+      <p id="error-message">{tb(message)}</p>
       {nameFix && (
         <dl className="filename-comparison">
-          <dt>Original name</dt>
-          <dd>{nameFix.original || "(empty)"}</dd>
-          <dt>Proposed name</dt>
+          <dt>{t("Original name")}</dt>
+          <dd>{nameFix.original || t("(empty)")}</dd>
+          <dt>{t("Proposed name")}</dt>
           <dd>{nameFix.proposed}</dd>
         </dl>
       )}
       <div className="error-popup-actions">
-        <button onClick={onClose}>{nameFix ? "Cancel" : "Close"}</button>
+        <button onClick={onClose}>{nameFix ? t("Cancel") : t("Close")}</button>
         {nameFix && (
           <button className="primary" onClick={onFix}>
-            Fix name
+            {t("Fix name")}
           </button>
         )}
       </div>
