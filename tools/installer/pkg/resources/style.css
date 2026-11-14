@@ -1,0 +1,9 @@
+/* The pages are made by tools/pkg/make_pages.py. Installer turns these pages into plain styled text: no positioning, rounded corners or dark-mode rules survive.
+   Keep to fonts, colours, margins and lists. No text colour, so it follows light and dark mode. */
+body { font: 13px -apple-system, "Helvetica Neue", sans-serif; line-height: 1.45; margin: 22px 26px; }
+h1 { font-size: 21px; margin: 0 0 6px; }
+h2 { font-size: 14px; margin: 18px 0 4px; }
+p { margin: 6px 0; }
+ol { margin: 6px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+.muted { color: #86868b; }

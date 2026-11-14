@@ -1,0 +1,5 @@
+#!/bin/sh
+# An older YouGlish Downloader that is running is closed first, so the new one replaces it cleanly. Only the copy in
+# Applications is closed: a test build of the app runs from somewhere else and is left alone.
+/usr/bin/pkill -f "/Applications/YouGlish Downloader.app/Contents/MacOS/" >/dev/null 2>&1
+exit 0
