@@ -1,5 +1,15 @@
 # YouGlish Downloader
 
+### 🎧 Hear it. Trim it. Keep the moment.
+
+**Find any word or phrase in real speech, then save the exact clip.** YouGlish Downloader pairs the YouGlish pronunciation search with a desktop clipper, so you can search a phrase in the language and accent you choose, hear how people actually say it in context, and download just the moment you need.
+
+- 🎓 **Language learners:** hear real people say it in real conversations, not just textbook recordings.
+- 👩‍🏫 **Teachers:** build ready-to-play example clips for class, tailored to your lesson.
+- 🔎 **Anyone hunting a phrase:** find where a phrase is spoken on YouTube, in the language you pick, and keep just that moment.
+
+The interface speaks 19 languages besides English. Download only content you own or have permission to download.
+
 A desktop fork of TubeCutter for manually finding speech examples with the official YouGlish widget. This project has its own app identifier and preferences.
 
 ## Use
