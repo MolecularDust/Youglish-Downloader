@@ -17,7 +17,9 @@
     "package:portable": "node scripts/package-windows-portable.mjs",
     "package:windows-installer": "node scripts/package-windows-installer.mjs",
     "package:windows": "npm run prepare:sidecars && node scripts/desktop.mjs build --bundles nsis --config src-tauri/tauri.windows.conf.json",
-    "package:installer": "bash tools/installer/make_installer.sh"
+    "package:installer": "bash tools/installer/make_installer.sh",
+    "i18n:check": "node scripts/i18n.mjs check",
+    "readme:check": "node scripts/readme-languages.mjs --check"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8",
