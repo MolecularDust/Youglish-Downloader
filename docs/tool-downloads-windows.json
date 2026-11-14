@@ -16,11 +16,11 @@
     "asset": "deno-x86_64-pc-windows-msvc.zip"
   },
   {
-    "sha256": "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba",
-    "version": "9.0.2",
-    "url": "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip",
+    "sha256": "35fa1c17eeead1f572072b134458788caf71c4a7fbce9e0bb2f3c41032959531",
+    "version": "N-128889-g88c46fce27 (BtbN autobuild-2026-11-13-12-43, win64-gpl)",
+    "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-13-12-43/ffmpeg-N-128889-g88c46fce27-win64-gpl.zip",
     "archive": true,
     "name": "ffmpeg",
-    "asset": "ffmpeg-9.0.2-essentials_build.zip"
+    "asset": "ffmpeg-N-128889-g88c46fce27-win64-gpl.zip"
   }
 ]
