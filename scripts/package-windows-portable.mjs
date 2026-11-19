@@ -7,16 +7,17 @@ import {
 } from "node:fs";
 import { resolve, join } from "node:path";
 import { buildRelease, run, stagePayload } from "./windows-payload.mjs";
-if (process.platform !== "win32" || process.arch !== "x64")
-  throw Error("Build on Windows x64.");
+if (process.platform !== "win32" || !["x64", "arm64"].includes(process.arch))
+  throw Error("Build on Windows x64 or ARM64.");
 buildRelease();
 mkdirSync("dist-portable", { recursive: true });
 const stage = join(
   mkdtempSync(resolve(".tools/portable-stage-")),
   "YouGlish Downloader",
 );
+const archSuffix = process.arch === "arm64" ? "-ARM64" : "";
 const zipPath = resolve(
-  "dist-portable/YouGlish-Downloader-Windows-Portable.zip",
+  `dist-portable/YouGlish-Downloader-Windows-Portable${archSuffix}.zip`,
 );
 if (existsSync(zipPath)) unlinkSync(zipPath);
 mkdirSync(stage, { recursive: true });
@@ -27,7 +28,7 @@ writeFileSync(
 );
 writeFileSync(
   join(stage, "README.txt"),
-  "Extract the entire ZIP to a writable directory, then run YouGlish Downloader.exe.\r\nWindows 11 x64 with system WebView2 is required. No Node.js or Rust installation is needed.\r\nSettings, WebView2 data, and caches are in Data beside the executable. Downloads use your selected destination.\r\nBrowser cookies stay in browser profiles; imported cookies remain at their chosen location.\r\nClose the app before ejecting USB storage. Do not run from within the ZIP.\r\nThis unsigned build may trigger Windows reputation prompts.\r\n",
+  `Extract the entire ZIP to a writable directory, then run YouGlish Downloader.exe.\r\nWindows 11 ${process.arch} with system WebView2 is required. No Node.js or Rust installation is needed.\r\nSettings, WebView2 data, and caches are in Data beside the executable. Downloads use your selected destination.\r\nBrowser cookies stay in browser profiles; imported cookies remain at their chosen location.\r\nClose the app before ejecting USB storage. Do not run from within the ZIP.\r\nThis unsigned build may trigger Windows reputation prompts.\r\n`,
 );
 const ps = `$ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression
@@ -47,4 +48,6 @@ run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], {
     YG_ZIP: zipPath,
   },
 });
-console.log("Created dist-portable/YouGlish-Downloader-Windows-Portable.zip");
+console.log(
+  `Created dist-portable/YouGlish-Downloader-Windows-Portable${archSuffix}.zip`,
+);

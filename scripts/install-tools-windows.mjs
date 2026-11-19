@@ -10,8 +10,13 @@ import {
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { resolve, join } from "node:path";
-if (process.platform !== "win32" || process.arch !== "x64")
-  throw Error("Windows x64 is required.");
+const arches = {
+  x64: { target: "x86_64-pc-windows-msvc", suffix: "" },
+  arm64: { target: "aarch64-pc-windows-msvc", suffix: "-arm64" },
+};
+const arch = arches[process.arch];
+if (process.platform !== "win32" || !arch)
+  throw Error("Windows tool installer targets Windows x64 and ARM64 only.");
 function copyVerified(src, dst) {
   if (
     existsSync(dst) &&
@@ -23,7 +28,10 @@ function copyVerified(src, dst) {
 }
 const tools = JSON.parse(
   readFileSync(
-    new URL("../docs/tool-downloads-windows.json", import.meta.url),
+    new URL(
+      `../docs/tool-downloads-windows${arch.suffix}.json`,
+      import.meta.url,
+    ),
     "utf8",
   ),
 );
@@ -84,4 +92,4 @@ for (const tool of tools) {
     }
   } else copyVerified(archive, `.tools/bin/${tool.name}.exe`);
 }
-console.log("Verified and installed Windows media tools.");
+console.log(`Verified and installed Windows ${process.arch} media tools.`);

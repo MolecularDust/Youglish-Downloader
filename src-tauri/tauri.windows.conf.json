@@ -11,7 +11,8 @@
       "resources/cacert.pem": "resources/cacert.pem",
       "../LICENSES/": "LICENSES/",
       "../docs/DEPENDENCIES.md": "DEPENDENCIES.md",
-      "../docs/tool-manifest-windows.json": "tool-manifest-windows.json"
+      "../docs/tool-manifest-windows.json": "tool-manifest-windows.json",
+      "../docs/tool-manifest-windows-arm64.json": "tool-manifest-windows-arm64.json"
     },
     "windows": {
       "webviewInstallMode": {

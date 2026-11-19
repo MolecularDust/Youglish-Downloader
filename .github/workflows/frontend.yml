@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
-          for n in yt-dlp ffmpeg ffprobe deno; do : > "src-tauri/binaries/$n-x86_64-pc-windows-msvc.exe"; done
+          for n in yt-dlp ffmpeg ffprobe deno; do : > "src-tauri/binaries/$n-x86_64-pc-windows-msvc.exe"; : > "src-tauri/binaries/$n-aarch64-pc-windows-msvc.exe"; done
       - name: Install the pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - name: Create an empty placeholder yt-dlp (one test only builds its command line)

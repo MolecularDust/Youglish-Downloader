@@ -231,7 +231,9 @@ mod tests {
 }
 
 fn tool_version(name: &str) -> Option<String> {
-    #[cfg(windows)]
+    #[cfg(all(windows, target_arch = "aarch64"))]
+    let manifest = include_str!("../../docs/tool-manifest-windows-arm64.json");
+    #[cfg(all(windows, not(target_arch = "aarch64")))]
     let manifest = include_str!("../../docs/tool-manifest-windows.json");
     #[cfg(not(windows))]
     let manifest = include_str!("../../docs/tool-manifest.json");
