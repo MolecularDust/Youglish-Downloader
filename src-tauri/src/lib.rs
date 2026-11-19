@@ -61,6 +61,7 @@ fn base(s: &Settings) -> Result<std::process::Command, String> {
         "--ignore-config",
         "--no-playlist",
         "--no-warnings",
+        "--no-check-formats",
         "--socket-timeout",
         "20",
         "--retries",

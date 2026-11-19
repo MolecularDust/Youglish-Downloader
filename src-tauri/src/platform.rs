@@ -64,10 +64,11 @@ pub fn cache_dir() -> Option<&'static PathBuf> {
     }
     CACHE_DIR.get()
 }
-/// Deno's JIT needs a signing entitlement the release build does not have, so it can only be
-/// enabled in development builds (YOUGLISH_DENO_JIT=1), to measure whether it would help.
+/// Deno's JIT needs a signing entitlement on macOS that the release build does not have, so it can only be
+/// enabled there in development builds (YOUGLISH_DENO_JIT=1). Windows has no such restriction.
 pub fn deno_jit() -> bool {
-    cfg!(debug_assertions) && std::env::var_os("YOUGLISH_DENO_JIT").is_some_and(|v| v == "1")
+    cfg!(windows)
+        || (cfg!(debug_assertions) && std::env::var_os("YOUGLISH_DENO_JIT").is_some_and(|v| v == "1"))
 }
 pub fn command(name: &str) -> Result<Command, String> {
     let mut c = Command::new(binary(name)?);
