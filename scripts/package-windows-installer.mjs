@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildRelease, run, stagePayload } from "./windows-payload.mjs";
-if (process.platform !== "win32" || process.arch !== "x64")
-  throw Error("Build on Windows x64.");
+if (process.platform !== "win32" || !["x64", "arm64"].includes(process.arch))
+  throw Error("Build on Windows x64 or ARM64.");
 const makensis = join(
   process.env.LOCALAPPDATA ?? "",
   "tauri",
@@ -21,7 +21,10 @@ stagePayload(payload);
 const version = "0.1.0";
 const outDir = resolve("dist-installer");
 mkdirSync(outDir, { recursive: true });
-const outFile = join(outDir, `YouGlish-Downloader-Setup_${version}_x64.exe`);
+const outFile = join(
+  outDir,
+  `YouGlish-Downloader-Setup_${version}_${process.arch}.exe`,
+);
 if (existsSync(outFile)) unlinkSync(outFile);
 run(makensis, [
   `/DPAYLOAD=${payload}`,

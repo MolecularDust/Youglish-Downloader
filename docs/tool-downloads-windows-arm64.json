@@ -1,0 +1,26 @@
+[
+  {
+    "sha256": "0066dbac3c124028e2dcae2a197fccee33cd91f456313d24f7af89fd54590e98",
+    "version": "2026.10.26",
+    "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_arm64.exe",
+    "archive": false,
+    "name": "yt-dlp",
+    "asset": "yt-dlp_arm64.exe"
+  },
+  {
+    "sha256": "b413b92b735b50c198e8fe3b85af1aa50e29d5f72e229aab701d132286e14cef",
+    "version": "v2.9.8",
+    "url": "https://github.com/denoland/deno/releases/download/v2.9.8/deno-aarch64-pc-windows-msvc.zip",
+    "archive": true,
+    "name": "deno",
+    "asset": "deno-aarch64-pc-windows-msvc.zip"
+  },
+  {
+    "sha256": "1d40276305c828c84ca2c6392f0a1e103c2988b37c9fab892c415dd1c1d2dc55",
+    "version": "N-128959-g4dbee3b241 (BtbN autobuild-2026-11-16-15-29, winarm64-gpl)",
+    "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-16-15-29/ffmpeg-N-128959-g4dbee3b241-winarm64-gpl.zip",
+    "archive": true,
+    "name": "ffmpeg",
+    "asset": "ffmpeg-N-128959-g4dbee3b241-winarm64-gpl.zip"
+  }
+]

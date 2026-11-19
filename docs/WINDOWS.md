@@ -1,13 +1,14 @@
 # Windows builds and portable use
 
-Windows x64 is supported on the shared codebase. The portable ZIP and optional NSIS installer build on Windows 11 x64.
+Windows x64 and ARM64 are supported on the shared codebase. The portable ZIP and optional NSIS installer build on Windows 11 x64 and ARM64.
 
 ## Status
 
-Tested on Windows 11 x64:
+Tested on Windows 11 ARM64 and x64:
 
-- Anonymous metadata, caption lookup, and remote segment downloads pass, including a Fast Cut download through the native queue.
-- Opera cookie extraction and a precise segment download pass when Opera is closed.
+- All 40 native Rust unit tests pass on `aarch64-pc-windows-msvc` and `x86_64-pc-windows-msvc`.
+- Portable ZIP and NSIS setup installer packages build cleanly for both architectures with pinned media sidecars and bundled app-local MSVC CRT DLLs.
+- On Windows 11 x64: Anonymous metadata, caption lookup, and remote segment downloads pass, including a Fast Cut download through the native queue; Opera cookie extraction and a precise segment download pass when Opera is closed.
 
 Not yet tested: authenticated caption retrieval, private or account-restricted videos, a clean Windows VM without development tools, a real USB FAT/exFAT volume, the GUI overwrite dialog, subtitle embedding, and installing or uninstalling the NSIS build. The binaries are unsigned.
 
@@ -19,7 +20,7 @@ Two earlier failures were resolved:
 
 ## Development prerequisites
 
-Use Node.js 24 LTS, Rust with the x86_64-pc-windows-msvc toolchain, Visual Studio 2022 C++ Build Tools (Desktop C++ workload, MSVC and Windows SDK), and system WebView2. The launch script discovers the usual user Cargo installation even when a shell's PATH predates Rust installation. Tauri prerequisites: https://v2.tauri.app/start/prerequisites/#windows .
+Use Node.js 24 LTS (or Node.js 22+ ARM64 on Windows ARM64), Rust with the `x86_64-pc-windows-msvc` or `aarch64-pc-windows-msvc` toolchain, Visual Studio C++ Build Tools (Desktop C++ workload, MSVC and Windows SDK, including ARM64 build tools if targeting ARM64), and system WebView2. The launch script discovers the usual user Cargo installation even when a shell's PATH predates Rust installation. Tauri prerequisites: https://v2.tauri.app/start/prerequisites/#windows .
 
 From the repository root:
 
@@ -34,7 +35,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npm run desktop
 ```
 
-The scripts dispatch to Windows implementations on win32; the Apple Silicon installer, sidecar signing, and macOS packaging are unchanged. The Windows installer supports x64 only; other Windows architectures are rejected explicitly.
+The scripts dispatch to Windows implementations on win32; the Apple Silicon installer, sidecar signing, and macOS packaging are unchanged. Both Windows x64 and ARM64 are supported natively; other architectures are rejected explicitly.
 
 ## Portable ZIP (preferred)
 
@@ -42,9 +43,9 @@ The scripts dispatch to Windows implementations on win32; the Apple Silicon inst
 npm run package:portable
 ```
 
-Output: `dist-portable/YouGlish-Downloader-Windows-Portable.zip`.
+Output: `dist-portable/YouGlish-Downloader-Windows-Portable.zip` (x64) or `dist-portable/YouGlish-Downloader-Windows-Portable-ARM64.zip` (ARM64).
 
-Extract the entire ZIP into any writable directory, then run `YouGlish Downloader.exe`. No installation, administrator token, Node.js, Rust, or separately installed media tools are needed. Windows 11 x64 and the system WebView2 runtime are required; the portable build never installs WebView2. Extract before running; do not launch from inside the ZIP.
+Extract the entire ZIP into any writable directory, then run `YouGlish Downloader.exe`. No installation, administrator token, Node.js, Rust, or separately installed media tools are needed. Windows 11 (x64 or ARM64) and the system WebView2 runtime are required; the portable build never installs WebView2. Extract before running; do not launch from inside the ZIP.
 
 The ZIP includes the app, yt-dlp.exe, ffmpeg.exe, ffprobe.exe, deno.exe, the certificate store, licenses and notices, exact tool versions and hashes, and app-local Microsoft CRT DLLs. Build inputs are pinned and verified against upstream SHA-256 digests. ZIP entries are sorted with fixed timestamps, and each build stages fresh files, so an earlier runtime Data folder is never included. Byte-for-byte reproducibility across different compiler installations is not claimed.
 
@@ -75,7 +76,7 @@ Windows resolves `.exe` media tools next to the app, bundled certificates under 
 npm run package:windows-installer
 ```
 
-This creates `dist-installer/YouGlish-Downloader-Setup_0.1.0_x64.exe`. The setup asks the user to choose one of two options:
+This creates `dist-installer/YouGlish-Downloader-Setup_0.1.0_x64.exe` (on x64) or `dist-installer/YouGlish-Downloader-Setup_0.1.0_arm64.exe` (on ARM64). The setup asks the user to choose one of two options:
 
 - **Install normally:** installs to `%LOCALAPPDATA%\Programs\YouGlish Downloader` with a Start menu shortcut and an entry in Apps & features. No administrator rights are needed. Uninstalling removes the program but not the user's settings and caches in AppData.
 - **Portable:** copies the program into `Documents\YouGlish Downloader Portable` (or a folder the user chooses). It writes `portable.marker`, so settings and caches stay beside the program. Nothing is added to the Start menu or registry.
@@ -90,7 +91,7 @@ The setup doesn't install WebView2. Windows 11 includes it; a machine without it
 npm run package:portable
 ```
 
-This creates `dist-portable/YouGlish-Downloader-Windows-Portable.zip`. Extract it anywhere writable and run the program. It contains the same files as the setup's portable option.
+This creates `dist-portable/YouGlish-Downloader-Windows-Portable.zip` (x64) or `dist-portable/YouGlish-Downloader-Windows-Portable-ARM64.zip` (ARM64). Extract it anywhere writable and run the program. It contains the same files as the setup's portable option.
 
 ## Redistribution
 

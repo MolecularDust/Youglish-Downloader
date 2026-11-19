@@ -1,0 +1,26 @@
+[
+  {
+    "name": "yt-dlp",
+    "target": "aarch64-pc-windows-msvc",
+    "sha256": "0066dbac3c124028e2dcae2a197fccee33cd91f456313d24f7af89fd54590e98",
+    "version": "2026.10.26"
+  },
+  {
+    "name": "ffmpeg",
+    "target": "aarch64-pc-windows-msvc",
+    "sha256": "8d873836e9438f64acc6bcd0936e664696876211e1e57cfa333c981928cf4052",
+    "version": "ffmpeg version N-128959-g4dbee3b241-20261116 Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  {
+    "name": "ffprobe",
+    "target": "aarch64-pc-windows-msvc",
+    "sha256": "534b30016450a2a4363a738fa9d33719d5c91b1153adc6b6536bbe99e8a97855",
+    "version": "ffprobe version N-128959-g4dbee3b241-20261116 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  {
+    "name": "deno",
+    "target": "aarch64-pc-windows-msvc",
+    "sha256": "40d161bc35657cc7432a2e3832290922939cd63fddd29f66db2261d291e42478",
+    "version": "deno 2.9.8 (stable, release, aarch64-pc-windows-msvc)"
+  }
+]

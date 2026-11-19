@@ -36,20 +36,29 @@ export function stagePayload(stage) {
     join(stage, "resources/cacert.pem"),
   );
   cpSync("LICENSES", join(stage, "LICENSES"), { recursive: true });
+  const manifestFile =
+    process.arch === "arm64"
+      ? "tool-manifest-windows-arm64.json"
+      : "tool-manifest-windows.json";
+  const downloadsFile =
+    process.arch === "arm64"
+      ? "tool-downloads-windows-arm64.json"
+      : "tool-downloads-windows.json";
   for (const name of [
     "DEPENDENCIES.md",
     "WINDOWS.md",
-    "tool-manifest-windows.json",
-    "tool-downloads-windows.json",
+    manifestFile,
+    downloadsFile,
   ])
     copyFileSync(`docs/${name}`, join(stage, name));
   copyFileSync("LICENSE", join(stage, "LICENSE"));
   // Ship the Microsoft redistributable app-local CRT, so no runtime installer/admin is needed.
+  const archFilter = process.arch === "arm64" ? "arm64" : "x64";
   const ps = `$ErrorActionPreference='Stop'
 $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio/Installer/vswhere.exe'
 $vs=& $vswhere -latest -products * -property installationPath
-$crt=Get-ChildItem (Join-Path $vs 'VC/Redist/MSVC') -Filter 'Microsoft.VC*.CRT' -Directory -Recurse | Where-Object FullName -match '[\\\\/]x64[\\\\/]' | Sort-Object FullName -Descending | Select-Object -First 1
-if(!$crt){throw 'Cannot locate redistributable x64 CRT'}
+$crt=Get-ChildItem (Join-Path $vs 'VC/Redist/MSVC') -Filter 'Microsoft.VC*.CRT' -Directory -Recurse | Where-Object { $_.FullName -match '[\\\\/]${archFilter}[\\\\/]' -and $_.FullName -notmatch 'onecore' } | Sort-Object FullName -Descending | Select-Object -First 1
+if(!$crt){throw 'Cannot locate redistributable ${archFilter} CRT'}
 Copy-Item (Join-Path $crt.FullName '*.dll') -Destination $env:YG_STAGE`;
   run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], {
     env: { ...process.env, YG_STAGE: stage },
