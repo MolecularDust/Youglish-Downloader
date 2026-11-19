@@ -197,6 +197,27 @@ function App() {
   const captionCache = useRef(
     new Map<string, { video: Video; track: CaptionTrack }>(),
   );
+  const inflightCaptions = useRef(
+    new Map<string, Promise<{ video: Video; track: CaptionTrack }>>(),
+  );
+  const fetchCaptionTrack = (id: string, code: string, key: string) => {
+    const existing = inflightCaptions.current.get(key);
+    if (existing) return existing;
+    const url = `https://www.youtube.com/watch?v=${id}`;
+    const p = invoke<{ video: Video; track: CaptionTrack }>("caption_track", {
+      url,
+      language: code,
+    })
+      .then((res) => {
+        captionCache.current.set(key, res);
+        return res;
+      })
+      .finally(() => {
+        inflightCaptions.current.delete(key);
+      });
+    inflightCaptions.current.set(key, p);
+    return p;
+  };
   const iframe = useRef<HTMLIFrameElement>(null),
     clearedJobIds = useRef(new Set<string>()),
     scrub = useRef<{ id: number; kind: "in" | "out" | "playhead" } | null>(
@@ -314,6 +335,18 @@ function App() {
         setPadding(2);
         setMetadataLoading(false);
         setMetadataStatus("");
+        if (isTauri()) {
+          const code = languageCodes[search?.language ?? language];
+          const cacheKey = [
+            value,
+            code,
+            settings.browser,
+            settings.cookiesFile,
+          ].join("|");
+          if (!captionCache.current.has(cacheKey)) {
+            void fetchCaptionTrack(value, code, cacheKey).catch(() => {});
+          }
+        }
       }
       if (
         type === "caption" &&
@@ -488,11 +521,11 @@ function App() {
       try {
         let cached = captionCache.current.get(cacheKey);
         if (!cached) {
-          const url = `https://www.youtube.com/watch?v=${id}`;
-          const { video: v, track } = await invoke<{
-            video: Video;
-            track: CaptionTrack;
-          }>("caption_track", { url, language: code });
+          const { video: v, track } = await fetchCaptionTrack(
+            id,
+            code,
+            cacheKey,
+          );
           if (request === matchRequest.current && id === candidateRef.current) {
             setVideo(v);
             if (!video || video.id !== id) {
@@ -503,7 +536,6 @@ function App() {
             setResolution(defaultHeight(v.formats.map((f) => f.height ?? 0)));
           }
           cached = { video: v, track };
-          captionCache.current.set(cacheKey, cached);
         }
         if (request !== matchRequest.current || id !== candidateRef.current)
           return;
