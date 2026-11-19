@@ -1115,6 +1115,17 @@ fn read_clipboard(app: tauri::AppHandle) -> Result<String, String> {
     Ok(text.trim().to_string())
 }
 pub fn run() {
+    // On Windows ARM64 (seen on Snapdragon), scrolling and input stall for about two seconds
+    // while the YouTube preview initializes its GPU compositing / DirectX surface.
+    // Disabling GPU hardware acceleration in WebView2 keeps the window completely responsive.
+    // The variable replaces Tauri's default arguments, so they are repeated.
+    #[cfg(all(windows, target_arch = "aarch64"))]
+    if std::env::var_os("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_none() {
+        std::env::set_var(
+            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --site-per-process --disable-gpu",
+        );
+    }
     #[cfg(windows)]
     if platform::portable() {
         let data = platform::data_dir().expect("Move the portable app to a writable directory");
