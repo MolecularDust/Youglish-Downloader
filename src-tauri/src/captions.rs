@@ -56,7 +56,7 @@ pub fn retrieve(
             .map_err(|_| "Cannot secure temporary subtitle folder")?;
     }
     let template = dir.0.join("captions.%(ext)s");
-    let sub_langs = format!("{language}.*,{language}-orig,{language}");
+    let sub_langs = format!("{language}-orig,{language}");
     let mut c = base(&settings)?;
     // Verbose makes yt-dlp print its phases. timing::run records only fixed phase labels with their
     // times, so Look Up timings in the diagnostics log show which step is slow, in release builds too.

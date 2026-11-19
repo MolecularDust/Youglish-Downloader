@@ -344,7 +344,11 @@ function App() {
             settings.cookiesFile,
           ].join("|");
           if (!captionCache.current.has(cacheKey)) {
-            void fetchCaptionTrack(value, code, cacheKey).catch(() => {});
+            window.setTimeout(() => {
+              if (candidateRef.current === value) {
+                void fetchCaptionTrack(value, code, cacheKey).catch(() => {});
+              }
+            }, 800);
           }
         }
       }
